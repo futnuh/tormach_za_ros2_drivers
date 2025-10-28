@@ -2,12 +2,56 @@ cmake_minimum_required(VERSION 3.22)
 project(za6_moveit_config)
 
 find_package(ament_cmake REQUIRED)
+find_package(ament_cmake_ros REQUIRED)
+find_package(moveit_servo REQUIRED)
+find_package(moveit_core REQUIRED)
+find_package(moveit_ros_planning REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(std_srvs REQUIRED)
 find_package(xacro REQUIRED)
 
 # Build static SRDF
 xacro_add_xacro_file(config/za6.srdf.xacro config/za6.srdf)
 # - add an abstract target to actually trigger the builds
 add_custom_target(srdf_files ALL DEPENDS ${XACRO_OUTPUT_FILE})
+
+# Build custom servo node executable
+add_executable(za6_servo_node src/za6_servo_node.cpp)
+
+target_include_directories(
+  za6_servo_node
+  PUBLIC
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
+  ${moveit_core_INCLUDE_DIRS}
+  ${moveit_ros_planning_INCLUDE_DIRS}
+  ${moveit_servo_INCLUDE_DIRS}
+)
+
+ament_target_dependencies(
+  za6_servo_node
+  moveit_servo
+  moveit_core
+  moveit_ros_planning
+  rclcpp
+  std_srvs
+)
+
+# Install custom servo node
+install(
+  TARGETS
+    za6_servo_node
+  RUNTIME DESTINATION
+    lib/${PROJECT_NAME}
+)
+
+# Install Python scripts directly to lib/package_name
+install(
+  FILES
+    scripts/gamepad_to_servo.py
+  DESTINATION
+    lib/${PROJECT_NAME}
+  PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
+)
 
 install(DIRECTORY config launch DESTINATION share/${PROJECT_NAME})
 install(FILES .setup_assistant DESTINATION share/${PROJECT_NAME})

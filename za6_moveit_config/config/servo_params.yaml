@@ -1,0 +1,38 @@
+/**:
+  ros__parameters:
+    move_group_name: manipulator
+    planning_frame: world
+    is_primary_planning_scene_monitor: false
+    ee_frame_name: grasp_link
+    robot_link_command_frame: tool0
+    command_in_type: "unitless"
+    publish_period: 0.01
+    low_latency_mode: false
+    command_out_type: "trajectory_msgs/JointTrajectory"
+    publish_joint_positions: true
+    publish_joint_velocities: false
+    publish_joint_accelerations: false
+    smoothing_filter_plugin_name: "online_signal_smoothing::ButterworthFilterPlugin"
+    low_pass_filter_coeff: 1.5
+    incoming_command_timeout: 0.5
+    lower_singularity_threshold: 25.0
+    hard_stop_singularity_threshold: 40.0
+    joint_limit_margin: 0.1
+    halt_all_joints_in_cartesian_mode: false
+    halt_all_joints_in_joint_mode: false
+    cartesian_command_in_topic: "/servo_cmd/pose"
+    joint_command_in_topic: "/servo_cmd/joint"
+    command_out_topic: "/joint_trajectory_controller/joint_trajectory"
+    joint_topic: "/joint_states"
+    status_topic: "/servo/status"
+    check_collisions: true
+    collision_check_rate: 10.0
+    self_collision_proximity_threshold: 0.006
+    scene_collision_proximity_threshold: 0.02
+    override_velocity_scaling_factor: 0.5
+    scale:
+      linear: 0.05
+      rotational: 0.25
+      joint: 0.25
+    use_sim_time: true
+
