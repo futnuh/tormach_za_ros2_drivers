@@ -13,7 +13,7 @@ Successfully integrated the custom RViz digital I/O panel (`rviz_za6_io_panel`) 
 ### 2. RViz Configuration Updates
 - **Modified**: `za6_moveit_config/config/moveit.rviz`
   - Added Digital I/O panel to default panel list
-- **Modified**: `za6_hardware/config/za.rviz` 
+- **Modified**: `za6_hardware/config/za.rviz`
   - Added Digital I/O panel to hardware-specific configuration
 
 ### 3. Documentation

@@ -18,20 +18,21 @@ class IOPanel : public rviz_common::Panel
   Q_OBJECT
 
 public:
-  explicit IOPanel(QWidget * parent = nullptr);
+  explicit IOPanel(QWidget* parent = nullptr);
   virtual ~IOPanel();
-  
+
   virtual void onInitialize();
   QString getName() const override;
 
 protected:
-  std::shared_ptr<rviz_common::ros_integration::RosNodeAbstractionIface> node_ptr_;
+  std::shared_ptr<rviz_common::ros_integration::RosNodeAbstractionIface>
+      node_ptr_;
   std::vector<rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr> input_subs_;
   std::vector<rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr> output_pubs_;
-  
+
   std::vector<QLabel*> input_labels_;
   std::vector<QPushButton*> output_buttons_;
-  
+
   void inputCallback(int index, const std_msgs::msg::Bool::SharedPtr msg);
 
 private Q_SLOTS:
@@ -41,4 +42,3 @@ private Q_SLOTS:
 }  // namespace rviz_za6_io_panel
 
 #endif  // RVIZ_ZA6_IO_PANEL__IO_PANEL_HPP_
-
