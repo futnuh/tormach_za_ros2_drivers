@@ -22,6 +22,7 @@
   <depend>moveit_ros_planning</depend>
   <depend>rclcpp</depend>
   <depend>std_srvs</depend>
+  <exec_depend>joy</exec_depend>
 
   <exec_depend>moveit_ros_move_group</exec_depend>
   <exec_depend>moveit_kinematics</exec_depend>

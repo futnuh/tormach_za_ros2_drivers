@@ -134,11 +134,12 @@ class GamepadToServo(Node):
                 axes.append(axis)
         
         # Debug: Log axis values and mode
-        has_movement = any(abs(a) >= deadzone for a in msg.axes)
-        if has_movement and len([a for a in axes if abs(a) >= 0.05]) > 0:
-            mode = "CARTESIAN" if self.cartesian_mode else "JOINT"
-            max_val = max([abs(a) for a in axes])
-            self.get_logger().info(f"Publishing {mode} command, max axis: {max_val:.3f}")
+        # Commented out to reduce log noise
+        # has_movement = any(abs(a) >= deadzone for a in msg.axes)
+        # if has_movement and len([a for a in axes if abs(a) >= 0.05]) > 0:
+        #     mode = "CARTESIAN" if self.cartesian_mode else "JOINT"
+        #     max_val = max([abs(a) for a in axes])
+        #     self.get_logger().info(f"Publishing {mode} command, max axis: {max_val:.3f}")
         
         if self.cartesian_mode:
             self.send_cartesian_command(axes, max_linear, max_angular)

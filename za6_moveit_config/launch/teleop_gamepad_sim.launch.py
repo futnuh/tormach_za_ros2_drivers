@@ -107,9 +107,16 @@ def generate_launch_description():
                 "halt_all_joints_in_cartesian_mode": False,
                 "halt_all_joints_in_joint_mode": False,
                 "moveit_servo.command_out_topic": "/joint_trajectory_controller/joint_trajectory",
+                "moveit_servo.cartesian_command_in_topic": "/servo_node/delta_twist_cmds",
+                "moveit_servo.joint_command_in_topic": "/servo_node/delta_joint_cmds",
+                "robot_description_kinematics.manipulator.kinematics_solver": "kdl_kinematics_plugin/KDLKinematicsPlugin",
+                "robot_description_kinematics.manipulator.kinematics_solver_search_resolution": 0.005,
+                "robot_description_kinematics.manipulator.kinematics_solver_timeout": 0.005,
+                "moveit_servo.check_collisions": False,
+                "moveit_servo.self_collision_proximity_threshold": 0.1,
+                "moveit_servo.scene_collision_proximity_threshold": 0.1,
             }
         ],
-        arguments=["--ros-args", "--log-level", "debug"],
         output="screen",
     )
 
