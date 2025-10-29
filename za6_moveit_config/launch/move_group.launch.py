@@ -126,6 +126,11 @@ def generate_launch_description():
     move_group_params = [
         moveit_config.to_dict(),
         move_group_configuration,
+        {
+            "robot_description_kinematics.manipulator.kinematics_solver": "kdl_kinematics_plugin/KDLKinematicsPlugin",
+            "robot_description_kinematics.manipulator.kinematics_solver_search_resolution": 0.005,
+            "robot_description_kinematics.manipulator.kinematics_solver_timeout": 0.005,
+        },
     ]
 
     add_debuggable_node(
