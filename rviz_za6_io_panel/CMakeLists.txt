@@ -19,71 +19,48 @@ set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
 # Include directories
-include_directories(
-  include
-  ${Qt5Widgets_INCLUDE_DIRS}
-)
+include_directories(include ${Qt5Widgets_INCLUDE_DIRS})
 
 # Source files
-set(${PROJECT_NAME}_SRCS
-  src/io_panel.cpp
-)
+set(${PROJECT_NAME}_SRCS src/io_panel.cpp)
 
 # Header files with Q_OBJECT
-set(${PROJECT_NAME}_HDRS
-  include/rviz_za6_io_panel/io_panel.hpp
-)
+set(${PROJECT_NAME}_HDRS include/rviz_za6_io_panel/io_panel.hpp)
 
 # Create library
-add_library(${PROJECT_NAME} SHARED
-  ${${PROJECT_NAME}_SRCS}
-  ${${PROJECT_NAME}_HDRS}
-)
+add_library(
+  ${PROJECT_NAME} SHARED ${${PROJECT_NAME}_SRCS} ${${PROJECT_NAME}_HDRS}
+  )
 
 # Link dependencies
-ament_target_dependencies(${PROJECT_NAME}
-  rclcpp
-  rviz_common
-  std_msgs
-  pluginlib
-)
+ament_target_dependencies(${PROJECT_NAME} rclcpp rviz_common std_msgs pluginlib)
 
-target_link_libraries(${PROJECT_NAME}
-  Qt5::Widgets
-)
+target_link_libraries(${PROJECT_NAME} Qt5::Widgets)
 
 # Causes the visibility macros to use dllexport rather than dllimport
-target_compile_definitions(${PROJECT_NAME} PRIVATE "RVIZ_ZA6_IO_PANEL_BUILDING_LIBRARY")
+target_compile_definitions(
+  ${PROJECT_NAME} PRIVATE "RVIZ_ZA6_IO_PANEL_BUILDING_LIBRARY"
+  )
 
 # Export plugin description file
 pluginlib_export_plugin_description_file(rviz_common plugins_description.xml)
 
 # Install
-install(TARGETS ${PROJECT_NAME}
+install(
+  TARGETS ${PROJECT_NAME}
   EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
-)
+  )
 
-install(DIRECTORY include/
-  DESTINATION include/${PROJECT_NAME}
-)
+install(DIRECTORY include/ DESTINATION include/${PROJECT_NAME})
 
-install(FILES plugins_description.xml
-  DESTINATION share/${PROJECT_NAME}
-)
+install(FILES plugins_description.xml DESTINATION share/${PROJECT_NAME})
 
 # Export
 ament_export_include_directories(include)
 ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
-ament_export_dependencies(
-  rclcpp
-  rviz_common
-  std_msgs
-  pluginlib
-  Qt5
-)
+ament_export_dependencies(rclcpp rviz_common std_msgs pluginlib Qt5)
 
 ament_package()
-
