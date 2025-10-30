@@ -60,6 +60,11 @@ def generate_launch_description():
     rviz_parameters = [
         moveit_config.planning_pipelines,
         moveit_config.robot_description_kinematics,
+        {
+            "robot_description_kinematics.manipulator.kinematics_solver": "kdl_kinematics_plugin/KDLKinematicsPlugin",
+            "robot_description_kinematics.manipulator.kinematics_solver_search_resolution": 0.005,
+            "robot_description_kinematics.manipulator.kinematics_solver_timeout": 0.005,
+        },
     ]
 
     add_debuggable_node(

@@ -1,0 +1,44 @@
+/**:
+  ros__parameters:
+    # Gamepad Configuration for ZA6 Teleoperation
+    # Maps gamepad inputs to robot motion commands
+    
+    # Gamepad device configuration
+    joy_node:
+      dev: "/dev/input/js0"  # Default gamepad device
+      deadzone: 0.1
+      autorepeat_rate: 20.0
+      coalesce_interval: 0.001
+    
+    # Button mappings (adjust based on your gamepad)
+    # Note: For 8BitDo controller in D-Input mode, these may be reversed
+    enable_servo_button: 1      # B button (Xbox) - for 8BitDo D-Input mode
+    disable_servo_button: 0     # A button (Xbox) - for 8BitDo D-Input mode
+    reset_pose_button: 2        # X button (Xbox) / Square button (PlayStation)
+    cartesian_mode_button: 4    # Left bumper
+    joint_mode_button: 5        # Right bumper
+    slow_mode_button: 6         # Back button (Xbox) / Select button (PlayStation)
+    fast_mode_button: 7         # Start button (Xbox) / Options button (PlayStation)
+    
+    # Axis mappings (adjust based on your gamepad)
+    # Cartesian mode axis mappings
+    linear_x_axis: 1          # Left stick X
+    linear_y_axis: 0          # Left stick Y  
+    linear_z_axis: 4          # Right stick Y
+    angular_x_axis: 3         # Right stick X
+    angular_y_axis: 2         # Left trigger
+    angular_z_axis: 5         # Right trigger
+    
+    # Joint mode axis mapping (for simplicity)
+    joint_axis: 1             # Left stick X controls joint
+    
+    # Speed scaling factors
+    speed_scaling:
+      slow: 0.1
+      normal: 0.3
+      fast: 0.6
+    
+    # Maximum allowed speed (moved to root level to match script)
+    max_linear_speed: 0.4   # m/s (cartesian 2x faster)
+    max_angular_speed: 2.0  # rad/s (cartesian 2x faster)
+    max_joint_speed: 1.0    # rad/s
