@@ -20,7 +20,8 @@ class SafetyStopNode(Node):
         # Publishers (ROS2 analogs of HAL pins)
         # Publish to hal_io/* so HAL consumes them
         self.pub_max_vel_scale = self.create_publisher(Float32, '/hal_io/max_vel_safety_scale', 10)
-        self.pub_quick_stop = self.create_publisher(Bool, '/hal_io/quick_stop', 10)
+        # Use quick_stop_ext which is wired to drive_safety.quick-stop-ext
+        self.pub_quick_stop = self.create_publisher(Bool, '/hal_io/quick_stop_ext', 10)
         self.pub_state_cmd = self.create_publisher(UInt32, '/hal_io/state_cmd', 10)  # one-shot quick stop command value 4
 
         # Inputs from digital IO (match HAL IO QoS: Best Effort, keep last 1)
