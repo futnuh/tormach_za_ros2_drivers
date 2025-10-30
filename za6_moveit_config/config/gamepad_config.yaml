@@ -38,13 +38,7 @@
       normal: 0.3
       fast: 0.6
     
-    # Safety settings
-    safety:
-      # Maximum allowed speed
-      max_linear_speed: 0.1   # m/s
-      max_angular_speed: 0.5  # rad/s
-      max_joint_speed: 0.5    # rad/s
-      
-      # Emergency stop
-      emergency_stop_button_1: 8  # Left stick press
-      emergency_stop_button_2: 9  # Right stick press
+    # Maximum allowed speed (moved to root level to match script)
+    max_linear_speed: 0.4   # m/s (cartesian 2x faster)
+    max_angular_speed: 2.0  # rad/s (cartesian 2x faster)
+    max_joint_speed: 1.0    # rad/s

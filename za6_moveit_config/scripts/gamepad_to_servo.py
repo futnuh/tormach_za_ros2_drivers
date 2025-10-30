@@ -34,6 +34,8 @@ from sensor_msgs.msg import Joy
 from geometry_msgs.msg import TwistStamped, Twist
 from std_msgs.msg import Float64MultiArray
 from control_msgs.msg import JointJog
+from std_srvs.srv import Trigger
+from controller_manager_msgs.srv import SwitchController
 
 
 class GamepadToServo(Node):
@@ -73,6 +75,26 @@ class GamepadToServo(Node):
         self.joint_pub = self.create_publisher(
             JointJog, '/servo_node/delta_joint_cmds', 10)
         
+        # Servo control clients
+        self.start_servo_client = self.create_client(Trigger, '/servo_node/start_servo')
+        self.unpause_servo_client = self.create_client(Trigger, '/servo_node/unpause_servo')
+        self.pause_servo_client = self.create_client(Trigger, '/servo_node/pause_servo')
+        self.stop_servo_client = self.create_client(Trigger, '/servo_node/stop_servo')
+        self.switch_controller_client = self.create_client(SwitchController, '/controller_manager/switch_controller')
+        
+        # Wait for services to be available (non-blocking, log warnings if not ready)
+        self.get_logger().info('Checking for servo services...')
+        if not self.start_servo_client.wait_for_service(timeout_sec=5.0):
+            self.get_logger().warn('start_servo service not available')
+        if not self.unpause_servo_client.wait_for_service(timeout_sec=5.0):
+            self.get_logger().warn('unpause_servo service not available')
+        if not self.pause_servo_client.wait_for_service(timeout_sec=5.0):
+            self.get_logger().warn('pause_servo service not available')
+        if not self.stop_servo_client.wait_for_service(timeout_sec=5.0):
+            self.get_logger().warn('stop_servo service not available')
+        if not self.switch_controller_client.wait_for_service(timeout_sec=5.0):
+            self.get_logger().warn('switch_controller service not available')
+        
         # Subscriber
         self.joy_sub = self.create_subscription(
             Joy, '/joy', self.joy_callback, 10)
@@ -80,6 +102,39 @@ class GamepadToServo(Node):
         self.get_logger().info('Gamepad to Servo converter initialized')
         self.get_logger().info('Press button 0 to enable servo, button 1 to disable')
         self.get_logger().info('Press bumper 4 for cartesian mode, bumper 5 for joint mode')
+    
+    def _call_service_async(self, client, service_name):
+        """Helper method to call a service asynchronously."""
+        if client.service_is_ready():
+            request = Trigger.Request()
+            future = client.call_async(request)
+            future.add_done_callback(
+                lambda f: self._service_callback(f, service_name)
+            )
+        else:
+            self.get_logger().warn(f'Service {service_name} is not ready')
+    
+    def _service_callback(self, future, service_name):
+        """Callback for service responses."""
+        try:
+            response = future.result()
+            if response.success:
+                self.get_logger().info(f'Service {service_name} succeeded: {response.message}')
+            else:
+                self.get_logger().warn(f'Service {service_name} failed: {response.message}')
+        except Exception as e:
+            self.get_logger().error(f'Exception calling {service_name}: {str(e)}')
+
+    def _switch_controllers(self, start: list[str], stop: list[str], strict: bool = True):
+        """Asynchronously request controller switch via controller_manager (Humble API)."""
+        if not self.switch_controller_client.service_is_ready():
+            self.get_logger().warn('switch_controller service not ready')
+            return
+        req = SwitchController.Request()
+        req.start_controllers = start
+        req.stop_controllers = stop
+        req.strictness = SwitchController.Request.STRICT if strict else SwitchController.Request.BEST_EFFORT
+        self.switch_controller_client.call_async(req)
     
     def joy_callback(self, msg):
         """Process gamepad input and convert to servo commands."""
@@ -100,12 +155,24 @@ class GamepadToServo(Node):
         if len(msg.buttons) > enable_btn and msg.buttons[enable_btn] == 1:
             if not self.last_button_states.get(enable_btn, False):
                 self.servo_enabled = True
-                self.get_logger().info('Servo ENABLED')
+                self.get_logger().info(f'ENABLE button {enable_btn} pressed. Starting and unpausing servo...')
+                # Try to start and unpause the servo - call start first, then unpause
+                self._call_service_async(self.start_servo_client, 'start_servo')
+                # Small delay to ensure start completes before unpause
+                import time
+                time.sleep(0.1)  # Brief delay
+                self._call_service_async(self.unpause_servo_client, 'unpause_servo')
+                # Switch controllers for teleop streaming
+                self._switch_controllers(start=['streaming_controller'], stop=['joint_trajectory_controller'], strict=True)
         
         if len(msg.buttons) > disable_btn and msg.buttons[disable_btn] == 1:
             if not self.last_button_states.get(disable_btn, False):
                 self.servo_enabled = False
-                self.get_logger().info('Servo DISABLED')
+                self.get_logger().info(f'DISABLE button {disable_btn} pressed. Pausing servo...')
+                # Pause the servo when disabled
+                self._call_service_async(self.pause_servo_client, 'pause_servo')
+                # Switch controllers back for planning/execution
+                self._switch_controllers(start=['joint_trajectory_controller'], stop=['streaming_controller'], strict=True)
         
         if len(msg.buttons) > cartesian_btn and msg.buttons[cartesian_btn] == 1:
             if not self.last_button_states.get(cartesian_btn, False):
@@ -126,12 +193,25 @@ class GamepadToServo(Node):
             return
         
         # Apply deadzone to axes
+        # Note: Triggers (axes 2, 5) read 1.0 when not pressed, -1.0 when fully pressed
         axes = []
-        for axis in msg.axes:
-            if abs(axis) < deadzone:
-                axes.append(0.0)
+        for i, axis in enumerate(msg.axes):
+            # For triggers (axes 2 and 5), map from [1.0 (not pressed), -1.0 (pressed)] to [0.0, 1.0]
+            if i in [2, 5]:  # Trigger axes
+                # Map: 1.0 (not pressed) -> 0.0, -1.0 (pressed) -> 1.0
+                # Formula: (1.0 - axis) / 2.0 maps [1.0, -1.0] to [0.0, 1.0]
+                mapped_axis = (1.0 - axis) / 2.0
+                # Apply deadzone - if below deadzone, set to 0.0
+                if mapped_axis < deadzone:
+                    axis = 0.0
+                else:
+                    # Keep as positive value [deadzone, 1.0] - triggers control positive rotation only
+                    axis = mapped_axis
             else:
-                axes.append(axis)
+                # For regular axes (sticks), apply deadzone normally
+                if abs(axis) < deadzone:
+                    axis = 0.0
+            axes.append(axis)
         
         # Debug: Log axis values and mode
         # Commented out to reduce log noise
@@ -188,14 +268,29 @@ class GamepadToServo(Node):
             'joint_4', 'joint_5', 'joint_6'
         ]
         
-        # Map axes to joint velocities
-        joint_cmd.velocities = []
-        for i in range(min(6, len(axes))):
-            joint_cmd.velocities.append(axes[i] * max_joint)
-        
-        # Pad with zeros if needed
-        while len(joint_cmd.velocities) < 6:
-            joint_cmd.velocities.append(0.0)
+        # Map axes to joint velocities (custom mapping for joint mode):
+        # joint_1 <- axis 0 (left stick X)
+        # joint_2 <- axis 1 (left stick Y)
+        # joint_3 <- axis 3 (right stick X)
+        # joint_4 <- axis 4 (right stick Y)
+        # joint_5 <- axis -2 (second last axis)
+        # joint_6 <- axis -1 (last axis)
+        # Note: last two axes are discrete (-1, 0, +1) per user
+        joint_cmd.velocities = [0.0] * 6
+
+        # Safe getters
+        def get_axis(idx: int) -> float:
+            if -len(axes) <= idx < len(axes):
+                return axes[idx]
+            return 0.0
+
+        joint_cmd.velocities[0] = get_axis(0) * max_joint
+        joint_cmd.velocities[1] = get_axis(1) * max_joint
+        # Swap: right stick Y -> joint_3, right stick X -> joint_4
+        joint_cmd.velocities[2] = get_axis(4) * max_joint
+        joint_cmd.velocities[3] = get_axis(3) * max_joint
+        joint_cmd.velocities[4] = get_axis(-2) * max_joint
+        joint_cmd.velocities[5] = get_axis(-1) * max_joint
         
         self.joint_pub.publish(joint_cmd)
 
