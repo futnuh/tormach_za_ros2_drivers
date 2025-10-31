@@ -1,5 +1,7 @@
 # MoveIt Servo Integration for ZA6 Robot - Work Summary
 
+> **⚠️ DEPRECATED**: This document is outdated and superseded by `TELEOP_SERVO_INTEGRATION.md` which contains the complete, up-to-date integration documentation. This file is kept for historical reference only.
+
 ## Timeline and Progress
 
 ### Initial Goal

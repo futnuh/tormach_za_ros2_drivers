@@ -1,5 +1,7 @@
 # MoveIt Servo Integration for ZA6 Robot
 
+> **Note**: This document describes an earlier integration approach. For the most up-to-date and complete documentation, see **`TELEOP_SERVO_INTEGRATION.md`** which covers the full hardware teleoperation implementation.
+
 ## Overview
 
 This document describes how to integrate MoveIt Servo for gamepad teleoperation with the ZA6 robot. The integration includes both software configuration and hardware-specific modifications to the MoveIt 2 source code.
@@ -22,7 +24,7 @@ To work around this limitation, we modified the MoveIt Servo source code to chan
 | `planning_frame` | `panda_link0` | `world` |
 | `ee_frame_name` | `panda_link8` | `grasp_link` |
 | `robot_link_command_frame` | `panda_link0` | `tool0` |
-| `command_out_topic` | `/panda_arm_controller/joint_trajectory` | `/manipulator_controller/joint_trajectory` |
+| `command_out_topic` | `/panda_arm_controller/joint_trajectory` | `/joint_trajectory_controller/joint_trajectory` |
 
 ## File Locations
 
@@ -73,11 +75,15 @@ After building the modified MoveIt Servo:
 # Source the modified MoveIt Servo
 source /tmp/moveit2_za6_ws/install/setup.bash
 
-# Launch teleoperation
+# Launch hardware teleoperation (recommended)
+ros2 launch za6_moveit_config teleop_hardware.launch.py \
+  use_fake_hardware:=false sim_mode:=false use_sim_time:=false use_rviz:=true \
+  servo_config:=servo_config.yaml gamepad_config:=gamepad_config.yaml
+
+# Or launch simulation teleoperation
 ros2 launch za6_moveit_config teleop_gamepad_sim.launch.py
 
-# In another terminal, unpause the servo:
-ros2 service call /servo_node/unpause_servo std_srvs/srv/Trigger
+# Servo is enabled/disabled via gamepad button 1 (enable) and button 0 (disable)
 ```
 
 ## Gamepad Controls

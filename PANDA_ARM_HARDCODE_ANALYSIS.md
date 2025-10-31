@@ -1,5 +1,7 @@
 # Analysis: panda_arm Hardcode in MoveIt Servo
 
+> **Note**: This is a historical analysis document. The issue described has been resolved. See `TELEOP_SERVO_INTEGRATION.md` and `patches/README.md` for the current solution.
+
 ## Problem Summary
 MoveIt Servo hardcodes `"panda_arm"` as the default value for the `move_group_name` parameter. This prevents the ZA6 robot from using MoveIt Servo because the ZA6 uses `"manipulator"` as its move group name.
 
