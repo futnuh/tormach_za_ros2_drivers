@@ -125,16 +125,38 @@ class GamepadToServo(Node):
         except Exception as e:
             self.get_logger().error(f'Exception calling {service_name}: {str(e)}')
 
-    def _switch_controllers(self, start: list[str], stop: list[str], strict: bool = True):
+    def _switch_controllers(self, activate: list[str], deactivate: list[str], strict: bool = True):
         """Asynchronously request controller switch via controller_manager (Humble API)."""
         if not self.switch_controller_client.service_is_ready():
             self.get_logger().warn('switch_controller service not ready')
             return
+        
         req = SwitchController.Request()
-        req.start_controllers = start
-        req.stop_controllers = stop
+        # Use new API: activate_controllers and deactivate_controllers
+        req.activate_controllers = activate
+        req.deactivate_controllers = deactivate
         req.strictness = SwitchController.Request.STRICT if strict else SwitchController.Request.BEST_EFFORT
-        self.switch_controller_client.call_async(req)
+        
+        future = self.switch_controller_client.call_async(req)
+        future.add_done_callback(
+            lambda f: self._switch_controller_callback(f, activate, deactivate)
+        )
+    
+    def _switch_controller_callback(self, future, activate: list[str], deactivate: list[str]):
+        """Callback for controller switch response."""
+        try:
+            response = future.result()
+            if response.ok:
+                self.get_logger().info(
+                    f'Controller switch succeeded: activated={activate}, deactivated={deactivate}'
+                )
+            else:
+                self.get_logger().warn(
+                    f'Controller switch failed: activated={activate}, deactivated={deactivate}. '
+                    f'Response: {response}'
+                )
+        except Exception as e:
+            self.get_logger().error(f'Exception switching controllers: {str(e)}')
     
     def joy_callback(self, msg):
         """Process gamepad input and convert to servo commands."""
@@ -163,7 +185,12 @@ class GamepadToServo(Node):
                 time.sleep(0.1)  # Brief delay
                 self._call_service_async(self.unpause_servo_client, 'unpause_servo')
                 # Switch controllers for teleop streaming
-                self._switch_controllers(start=['streaming_controller'], stop=['joint_trajectory_controller'], strict=True)
+                # Use BEST_EFFORT to allow switch even if streaming_controller is already active
+                self._switch_controllers(
+                    activate=['streaming_controller'], 
+                    deactivate=['joint_trajectory_controller'], 
+                    strict=False
+                )
         
         if len(msg.buttons) > disable_btn and msg.buttons[disable_btn] == 1:
             if not self.last_button_states.get(disable_btn, False):
@@ -172,7 +199,11 @@ class GamepadToServo(Node):
                 # Pause the servo when disabled
                 self._call_service_async(self.pause_servo_client, 'pause_servo')
                 # Switch controllers back for planning/execution
-                self._switch_controllers(start=['joint_trajectory_controller'], stop=['streaming_controller'], strict=True)
+                self._switch_controllers(
+                    activate=['joint_trajectory_controller'], 
+                    deactivate=['streaming_controller'], 
+                    strict=True
+                )
         
         if len(msg.buttons) > cartesian_btn and msg.buttons[cartesian_btn] == 1:
             if not self.last_button_states.get(cartesian_btn, False):
