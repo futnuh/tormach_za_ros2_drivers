@@ -1,0 +1,12 @@
+# NOTE: This file is NOT USED anymore.
+# Kinematics parameters for servo are now set inline in teleop_hardware.launch.py
+# This file is kept for reference only.
+
+/**:
+  ros__parameters:
+    robot_description_kinematics:
+      manipulator:
+        kinematics_solver: kdl_kinematics_plugin/KDLKinematicsPlugin
+        kinematics_solver_search_resolution: 0.005
+        kinematics_solver_timeout: 0.005
+
