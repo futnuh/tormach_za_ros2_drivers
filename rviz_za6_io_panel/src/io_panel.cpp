@@ -225,4 +225,3 @@ void IOPanel::outputButtonClicked(int index)
 
 #include <pluginlib/class_list_macros.hpp>
 PLUGINLIB_EXPORT_CLASS(rviz_za6_io_panel::IOPanel, rviz_common::Panel)
-
