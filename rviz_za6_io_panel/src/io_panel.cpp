@@ -226,5 +226,3 @@ void IOPanel::outputButtonClicked(int index)
 #include <pluginlib/class_list_macros.hpp>
 PLUGINLIB_EXPORT_CLASS(rviz_za6_io_panel::IOPanel, rviz_common::Panel)
 
-// This is CRITICAL for Qt's moc to work properly
-//#include "moc_io_panel.cpp"
