@@ -46,9 +46,9 @@ endif()
 
 # Install python executables
 install(
-  PROGRAMS scripts/hw_device_mgr scripts/drive_state scripts/dump_params scripts/safety_stop.py
-  DESTINATION lib/${PROJECT_NAME}
-)
+  PROGRAMS scripts/hw_device_mgr scripts/drive_state scripts/dump_params
+           scripts/safety_stop.py DESTINATION lib/${PROJECT_NAME}
+  )
 
 # Install other files
 install(DIRECTORY config halfiles launch DESTINATION share/${PROJECT_NAME})
