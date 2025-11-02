@@ -51,10 +51,10 @@ class GamepadToServo(Node):
         self.declare_parameter('max_joint_speed', 0.5)
         
         # Button mappings
-        self.declare_parameter('enable_servo_button', 0)
-        self.declare_parameter('disable_servo_button', 1)
-        self.declare_parameter('cartesian_mode_button', 4)
-        self.declare_parameter('joint_mode_button', 5)
+        # Button 7 (start): Toggle servo enable/disable (enter/exit teleoperation)
+        self.declare_parameter('toggle_servo_button', 7)
+        # Button 6 (select): Toggle between cartesian and joint mode
+        self.declare_parameter('toggle_mode_button', 6)
         
         # Axis mappings
         self.declare_parameter('linear_x_axis', 1)
@@ -100,8 +100,8 @@ class GamepadToServo(Node):
             Joy, '/joy', self.joy_callback, 10)
         
         self.get_logger().info('Gamepad to Servo converter initialized')
-        self.get_logger().info('Press button 0 to enable servo, button 1 to disable')
-        self.get_logger().info('Press bumper 4 for cartesian mode, bumper 5 for joint mode')
+        self.get_logger().info('Press START button (7) to toggle teleoperation (enter/exit)')
+        self.get_logger().info('Press SELECT button (6) to toggle between cartesian/joint mode')
     
     def _call_service_async(self, client, service_name):
         """Helper method to call a service asynchronously."""
@@ -168,52 +168,49 @@ class GamepadToServo(Node):
         max_joint = self.get_parameter('max_joint_speed').value
         
         # Button mappings
-        enable_btn = self.get_parameter('enable_servo_button').value
-        disable_btn = self.get_parameter('disable_servo_button').value
-        cartesian_btn = self.get_parameter('cartesian_mode_button').value
-        joint_btn = self.get_parameter('joint_mode_button').value
+        toggle_servo_btn = self.get_parameter('toggle_servo_button').value
+        toggle_mode_btn = self.get_parameter('toggle_mode_button').value
         
         # Handle button presses
-        if len(msg.buttons) > enable_btn and msg.buttons[enable_btn] == 1:
-            if not self.last_button_states.get(enable_btn, False):
-                self.servo_enabled = True
-                self.get_logger().info(f'ENABLE button {enable_btn} pressed. Starting and unpausing servo...')
-                # Try to start and unpause the servo - call start first, then unpause
-                self._call_service_async(self.start_servo_client, 'start_servo')
-                # Small delay to ensure start completes before unpause
-                import time
-                time.sleep(0.1)  # Brief delay
-                self._call_service_async(self.unpause_servo_client, 'unpause_servo')
-                # Switch controllers for teleop streaming
-                # Use BEST_EFFORT to allow switch even if streaming_controller is already active
-                self._switch_controllers(
-                    activate=['streaming_controller'], 
-                    deactivate=['joint_trajectory_controller'], 
-                    strict=False
-                )
+        # Button 7 (start): Toggle servo enable/disable (enter/exit teleoperation)
+        if len(msg.buttons) > toggle_servo_btn and msg.buttons[toggle_servo_btn] == 1:
+            if not self.last_button_states.get(toggle_servo_btn, False):
+                if not self.servo_enabled:
+                    # Enable servo: switch to streaming controller, unpause and start servo
+                    self.servo_enabled = True
+                    self.get_logger().info(f'START button ({toggle_servo_btn}) pressed. Entering teleoperation...')
+                    # Switch controllers first
+                    self._switch_controllers(
+                        activate=['streaming_controller'], 
+                        deactivate=['joint_trajectory_controller'], 
+                        strict=False
+                    )
+                    # Small delay to ensure controller switch completes
+                    import time
+                    time.sleep(0.1)
+                    # Then unpause and start the servo (in that order)
+                    self._call_service_async(self.unpause_servo_client, 'unpause_servo')
+                    time.sleep(0.1)  # Brief delay
+                    self._call_service_async(self.start_servo_client, 'start_servo')
+                else:
+                    # Disable servo: pause servo, switch back to trajectory controller
+                    self.servo_enabled = False
+                    self.get_logger().info(f'START button ({toggle_servo_btn}) pressed. Exiting teleoperation...')
+                    # Pause the servo
+                    self._call_service_async(self.pause_servo_client, 'pause_servo')
+                    # Switch controllers back for planning/execution
+                    self._switch_controllers(
+                        activate=['joint_trajectory_controller'], 
+                        deactivate=['streaming_controller'], 
+                        strict=True
+                    )
         
-        if len(msg.buttons) > disable_btn and msg.buttons[disable_btn] == 1:
-            if not self.last_button_states.get(disable_btn, False):
-                self.servo_enabled = False
-                self.get_logger().info(f'DISABLE button {disable_btn} pressed. Pausing servo...')
-                # Pause the servo when disabled
-                self._call_service_async(self.pause_servo_client, 'pause_servo')
-                # Switch controllers back for planning/execution
-                self._switch_controllers(
-                    activate=['joint_trajectory_controller'], 
-                    deactivate=['streaming_controller'], 
-                    strict=True
-                )
-        
-        if len(msg.buttons) > cartesian_btn and msg.buttons[cartesian_btn] == 1:
-            if not self.last_button_states.get(cartesian_btn, False):
-                self.cartesian_mode = True
-                self.get_logger().info('Switched to CARTESIAN mode')
-        
-        if len(msg.buttons) > joint_btn and msg.buttons[joint_btn] == 1:
-            if not self.last_button_states.get(joint_btn, False):
-                self.cartesian_mode = False
-                self.get_logger().info('Switched to JOINT mode')
+        # Button 6 (select): Toggle between cartesian and joint mode
+        if len(msg.buttons) > toggle_mode_btn and msg.buttons[toggle_mode_btn] == 1:
+            if not self.last_button_states.get(toggle_mode_btn, False):
+                self.cartesian_mode = not self.cartesian_mode
+                mode_name = "CARTESIAN" if self.cartesian_mode else "JOINT"
+                self.get_logger().info(f'SELECT button ({toggle_mode_btn}) pressed. Switched to {mode_name} mode')
         
         # Update button states
         for i, pressed in enumerate(msg.buttons):
@@ -303,8 +300,8 @@ class GamepadToServo(Node):
         # joint_1 <- axis 0 (left stick X)
         # joint_2 <- axis 1 (left stick Y)
         # joint_3 <- axis 3 (right stick X)
-        # joint_4 <- axis 4 (right stick Y)
-        # joint_5 <- axis -2 (second last axis)
+        # joint_4 <- axis -2 (second last axis)
+        # joint_5 <- axis 4 (right stick Y)
         # joint_6 <- axis -1 (last axis)
         # Note: last two axes are discrete (-1, 0, +1) per user
         joint_cmd.velocities = [0.0] * 6
@@ -315,13 +312,13 @@ class GamepadToServo(Node):
                 return axes[idx]
             return 0.0
 
-        joint_cmd.velocities[0] = get_axis(0) * max_joint
-        joint_cmd.velocities[1] = get_axis(1) * max_joint
-        # Swap: right stick Y -> joint_3, right stick X -> joint_4
-        joint_cmd.velocities[2] = get_axis(4) * max_joint
-        joint_cmd.velocities[3] = get_axis(3) * max_joint
-        joint_cmd.velocities[4] = get_axis(-2) * max_joint
-        joint_cmd.velocities[5] = get_axis(-1) * max_joint
+        joint_cmd.velocities[0] = get_axis(0) * max_joint  # joint_1 (left stick X)
+        joint_cmd.velocities[1] = get_axis(1) * max_joint  # joint_2 (left stick Y)
+        joint_cmd.velocities[2] = get_axis(3) * max_joint  # joint_3 (right stick X)
+        # Swapped: joint_4 uses axis -2 (was joint_5's), joint_5 uses axis 4 (right stick Y, was joint_4's)
+        joint_cmd.velocities[3] = get_axis(-2) * max_joint  # joint_4
+        joint_cmd.velocities[4] = get_axis(4) * max_joint   # joint_5 (right stick Y)
+        joint_cmd.velocities[5] = get_axis(-1) * max_joint * 2.0  # joint_6 (2x speed)
         
         self.joint_pub.publish(joint_cmd)
 

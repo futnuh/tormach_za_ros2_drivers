@@ -10,15 +10,11 @@
       autorepeat_rate: 20.0
       coalesce_interval: 0.001
     
-    # Button mappings (adjust based on your gamepad)
-    # Note: For 8BitDo controller in D-Input mode, these may be reversed
-    enable_servo_button: 1      # B button (Xbox) - for 8BitDo D-Input mode
-    disable_servo_button: 0     # A button (Xbox) - for 8BitDo D-Input mode
-    reset_pose_button: 2        # X button (Xbox) / Square button (PlayStation)
-    cartesian_mode_button: 4    # Left bumper
-    joint_mode_button: 5        # Right bumper
-    slow_mode_button: 6         # Back button (Xbox) / Select button (PlayStation)
-    fast_mode_button: 7         # Start button (Xbox) / Options button (PlayStation)
+    # Button mappings (0-indexed)
+    # Button 7 (Start): Toggle teleoperation (enter/exit)
+    toggle_servo_button: 7      # Start button - toggles servo enable/disable
+    # Button 6 (Select): Toggle between cartesian and joint mode
+    toggle_mode_button: 6       # Select button - toggles cartesian/joint mode
     
     # Axis mappings (adjust based on your gamepad)
     # Cartesian mode axis mappings
