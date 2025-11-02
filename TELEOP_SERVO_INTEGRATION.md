@@ -99,6 +99,50 @@ robot_description_kinematics:
 
 ## Technical Details
 
+### MoveIt2 Source Code Modifications
+
+**Important:** MoveIt2 was rebuilt from patched source code for this teleoperation integration.
+
+**Why a patch was required:**
+MoveIt Servo contains hardcoded default values for the Franka Panda robot (`panda_arm`, `panda_link0`, etc.) in `servo_parameters.h`. These defaults are applied during `ServoNode` construction *before* user-provided parameters can override them, causing the servo node to crash when used with robots that don't have a "panda_arm" move group.
+
+**Patch location:**
+- Patch file: `patches/moveit_servo_za6_defaults.patch` (in this repository)
+- Patched source code: `/home/pathpilot/Temp/moveit2/` (separate git repository, not in this repo)
+- Build workspace: `/tmp/moveit2_za6_ws/` (symlinks to patched source)
+- Rebuild script: `REBUILD_SERVO.sh` (in this repository root)
+
+**Patch modifications:**
+The patch changes MoveIt Servo defaults from Panda values to ZA6 values:
+- `robot_link_command_frame`: `panda_link0` → `tool0`
+- `command_out_topic`: `/panda_arm_controller/joint_trajectory` → `/joint_trajectory_controller/joint_trajectory`
+- `move_group_name`: `panda_arm` → `manipulator`
+- `planning_frame`: `panda_link0` → `world`
+- `ee_frame_name`: `panda_link8` → `grasp_link`
+
+**Implementation details:**
+- **Not using ComposableNode**: The implementation uses the standalone `servo_node_main` executable, not the composable node interface
+- While `ServoNode` supports composable node usage (it has `RCLCPP_COMPONENTS_REGISTER_NODE`), the launch file uses `executable="servo_node_main"` which is the traditional ROS2 node approach
+- The patched source supports both approaches, but the standalone executable is what's currently used
+
+**Rebuilding MoveIt2:**
+After applying the patch, MoveIt2 must be rebuilt:
+```bash
+# Apply the patch
+cd /home/pathpilot/Temp/moveit2
+git apply /path/to/tormach_za_ros2_drivers/patches/moveit_servo_za6_defaults.patch
+
+# Rebuild moveit_servo package
+cd /tmp/moveit2_za6_ws
+ln -sf /home/pathpilot/Temp/moveit2/moveit_ros src
+colcon build --packages-select moveit_servo --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
+source install/setup.bash
+```
+
+**Note:** Even with the patched defaults, configuration files (`servo_config.yaml` and inline parameters in `teleop_hardware.launch.py`) override `command_out_topic` to `/streaming_controller/commands` for servo teleoperation, while the patch default of `/joint_trajectory_controller/joint_trajectory` remains correct for trajectory-based control.
+
+For detailed patch information, see `patches/README.md`.
+
 ### Parameter Structure Fixes
 1. **Robot Description**: Wrapped `Command()` output with `ParameterValue(..., value_type=str)` to explicitly tell launch system these are strings (URDF/XML), not YAML to parse
 2. **Servo Parameters**: Added explicit inline parameters in launch file to ensure proper application:
@@ -136,11 +180,14 @@ ros2 launch za6_moveit_config teleop_hardware.launch.py \
 ```
 
 **Controls:**
-- **Button 1 (A)**: Enable servo/teleoperation mode
-- **Button 0 (X)**: Disable servo mode
-- **Bumper 4**: Cartesian mode
-- **Bumper 5**: Joint mode
+- **Button 7 (START)**: Toggle teleoperation (enter/exit)
+  - Press to enter: Switches to streaming controller, unpauses and starts servo
+  - Press again to exit: Pauses servo, switches back to joint_trajectory_controller
+- **Button 6 (SELECT)**: Toggle between cartesian/joint mode
 - **Joysticks**: Control robot motion
+  - Left stick: Joint 1 (X), Joint 2 (Y)
+  - Right stick: Joint 3 (X), Joint 5 (Y) - note: joint 4 and 5 controls are swapped
+  - Triggers/DPad: Joint 4 and Joint 6 (Joint 6 has 2x speed multiplier)
 
 ---
 
