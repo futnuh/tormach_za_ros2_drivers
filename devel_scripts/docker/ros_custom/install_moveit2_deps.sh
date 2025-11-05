@@ -20,6 +20,7 @@ apt-get install -y \
   ros-humble-cv-bridge \
   ros-humble-image-transport \
   ros-humble-ompl \
+  ros-humble-launch-param-builder \
   libfcl-dev \
   liboctomap-dev \
   libassimp-dev \
