@@ -86,7 +86,7 @@ colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
 source install/setup.bash
 ```
 
-**Note:** The first build will take 10-20 minutes as MoveIt2 is compiled from source.
+**Note:** The first build will take 10-20 minutes as MoveIt2 is compiled from source. If you encounter missing dependency errors during the build, ensure you're using the latest Docker image (see image version bumping below).
 
 ### About the MoveIt2 Patches
 
