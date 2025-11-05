@@ -151,6 +151,9 @@ COPY devel_scripts/docker/ros_custom/ ros_custom/
 # Install ROS package deps
 RUN --mount=type=cache,target=/var/cache/apt,id=ros_custom \
     ros_custom/run_rosdep.sh
+# Install MoveIt2 build dependencies (when building from source)
+RUN --mount=type=cache,target=/var/cache/apt,id=ros_custom \
+    ros_custom/install_moveit2_deps.sh
 
 ###################################
 # ROS DEVEL/DIST COMMON BUILD IMAGE
