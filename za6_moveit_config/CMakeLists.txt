@@ -48,6 +48,10 @@ install(
 install(
   FILES
     scripts/gamepad_to_servo.py
+    scripts/publish_frame_markers.py
+    scripts/store_frames_to_warehouse.py
+    scripts/load_frames_from_warehouse.py
+    scripts/get_current_pose.py
   DESTINATION
     lib/${PROJECT_NAME}
   PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE

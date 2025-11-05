@@ -29,6 +29,7 @@
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
+import os
 
 from moveit_configs_utils import MoveItConfigsBuilder
 from moveit_configs_utils.launch_utils import (
@@ -57,6 +58,11 @@ def generate_launch_description():
         )
     )
 
+    # Get the default database directory and ensure it exists
+    db_dir = os.path.expanduser("~/.ros/warehouse")
+    os.makedirs(db_dir, exist_ok=True)
+    db_path = os.path.join(db_dir, "moveit_warehouse.sqlite")
+
     rviz_parameters = [
         moveit_config.planning_pipelines,
         moveit_config.robot_description_kinematics,
@@ -64,6 +70,10 @@ def generate_launch_description():
             "robot_description_kinematics.manipulator.kinematics_solver": "kdl_kinematics_plugin/KDLKinematicsPlugin",
             "robot_description_kinematics.manipulator.kinematics_solver_search_resolution": 0.005,
             "robot_description_kinematics.manipulator.kinematics_solver_timeout": 0.005,
+            # Warehouse configuration for SQLite
+            "warehouse_plugin": "warehouse_ros_sqlite::DatabaseConnection",
+            "warehouse_host": str(db_path),
+            "warehouse_port": 0,
         },
     ]
 

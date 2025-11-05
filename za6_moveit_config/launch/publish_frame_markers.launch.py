@@ -12,7 +12,7 @@
 #
 #    * Neither the name of the {copyright_holder} nor the names of its
 #      contributors may be used to endorse or promote products derived from
-#      this software without specific prior written permission.
+#      this software without specific written permission.
 #
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -28,53 +28,34 @@
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
-import os
+from ament_index_python.packages import get_package_share_directory
 
 
 def generate_launch_description():
-    # Get the default database directory and ensure it exists
-    db_dir = os.path.expanduser("~/.ros/warehouse")
-    os.makedirs(db_dir, exist_ok=True)
-    db_path = os.path.join(db_dir, "moveit_warehouse.sqlite")
+    pkg_share = get_package_share_directory('za6_moveit_config')
+    default_frames_file = PathJoinSubstitution([pkg_share, 'config', 'user_frames.yaml'])
 
-    # Declare launch arguments
-    declared_arguments = [
-        DeclareLaunchArgument(
-            "warehouse_plugin",
-            default_value="warehouse_ros_sqlite::DatabaseConnection",
-            description="Warehouse plugin to use (SQLite)",
-        ),
-        DeclareLaunchArgument(
-            "warehouse_host",
-            default_value=str(db_path),
-            description="Path to SQLite database file",
-        ),
-        DeclareLaunchArgument(
-            "warehouse_port",
-            default_value="0",
-            description="Warehouse port (not used for SQLite)",
-        ),
-    ]
-
-    warehouse_plugin = LaunchConfiguration("warehouse_plugin")
-    warehouse_host = LaunchConfiguration("warehouse_host")
-    warehouse_port = LaunchConfiguration("warehouse_port")
-
-    # Warehouse node using SQLite
-    warehouse_node = Node(
-        package="moveit_ros_warehouse",
-        executable="moveit_warehouse_services",
-        name="moveit_warehouse",
-        parameters=[
-            {
-                "warehouse_plugin": warehouse_plugin,
-                "warehouse_host": warehouse_host,
-                "warehouse_port": warehouse_port,
-            }
-        ],
-        output="screen",
+    frames_file_arg = DeclareLaunchArgument(
+        'frames_file',
+        default_value=default_frames_file,
+        description='Path to user frames YAML configuration file',
     )
 
-    return LaunchDescription(declared_arguments + [warehouse_node])
+    frames_file = LaunchConfiguration('frames_file')
+
+    frame_marker_node = Node(
+        package='za6_moveit_config',
+        executable='publish_frame_markers.py',
+        name='frame_marker_publisher',
+        output='screen',
+        parameters=[],
+        arguments=['--frames-file', frames_file],
+    )
+
+    return LaunchDescription([
+        frames_file_arg,
+        frame_marker_node,
+    ])
+
