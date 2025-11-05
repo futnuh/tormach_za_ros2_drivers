@@ -19,6 +19,40 @@ ROSDEP_SKIP_KEYS=(
     # Only needed for MoveIt Studio pkgs
     moveit_studio_agent
     moveit_studio_behavior
+
+    # Skip MoveIt2 packages - we build from forked source with ZA6 patches
+    # Note: moveit_msgs is a separate repo imported via vcs (see moveit2.repos)
+    moveit_servo
+    moveit_core
+    moveit_ros_planning
+    moveit_ros_move_group
+    moveit_kinematics
+    moveit_msgs
+    moveit_planners
+    moveit_planners_ompl
+    moveit_planners_chomp
+    pilz_industrial_motion_planner
+    moveit_simple_controller_manager
+    moveit_configs_utils
+    moveit_ros_visualization
+    moveit_ros_warehouse
+    moveit_setup_assistant
+    moveit_ros_occupancy_map_monitor
+    moveit_ros_robot_interaction
+    moveit_ros_planning_interface
+    moveit_common
+    moveit_setup_app_plugins
+    moveit_setup_controllers
+    moveit_setup_core_plugins
+    moveit_setup_framework
+    moveit_setup_srdf_plugins
+    moveit_runtime
+    moveit
+    moveit_plugins
+    moveit_ros
+    chomp_motion_planner
+    # Note: warehouse_ros and warehouse_ros_sqlite are external dependencies
+    # and will be installed from apt packages
 )
 
 for DIR in ${WS_DIR}/src /opt/ros/${ROS_DISTRO}; do
