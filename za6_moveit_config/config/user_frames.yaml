@@ -1,0 +1,62 @@
+---
+# User-defined reference frames for ZA6 robot
+# These frames can be used for waypoints, planning, and calibration
+# 
+# You can define frames in two ways:
+# 1. Using pose: [x, y, z, roll, pitch, yaw] in meters and radians
+# 2. Using joint_state: joint positions that will be converted to pose via forward kinematics
+#
+# All frames are relative to the parent frame (typically "world")
+
+# Example: Work table frame (using pose)
+table_frame:
+  parent_frame: world
+  pose: [0.5, 0.0, 0.75, 0, 0, 0]  # [x, y, z, roll, pitch, yaw]
+  description: "Main work table surface"
+
+# Example: Fixture mount frame (using pose)
+fixture_frame:
+  parent_frame: world
+  pose: [0.3, 0.4, 0.5, 0, 0, 1.57]
+  description: "Fixture mount point"
+
+# Example: Camera calibration frame (using pose)
+camera_frame:
+  parent_frame: world
+  pose: [0.8, -0.2, 0.6, 0, 1.57, 0]
+  description: "Camera mounting position"
+
+# Example: Frame defined by joint positions (will compute pose via forward kinematics)
+home_frame:
+  parent_frame: world
+  joint_state:
+    name: [joint_1, joint_2, joint_3, joint_4, joint_5, joint_6]
+    position: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  ee_link: grasp_link  # Optional: which end effector link to use for pose computation
+  description: "Home position frame (computed from joint angles)"
+
+# Example: Another frame using joint positions
+grasp_frame:
+  parent_frame: world
+  joint_state:
+    name: [joint_1, joint_2, joint_3, joint_4, joint_5, joint_6]
+    position: [2.45, 1.20, -0.69, 0.11, 0.09, -0.16]
+  ee_link: grasp_link
+  description: "Grasp position frame (computed from joint angles)"
+
+# Add your custom frames below:
+# Option 1: Using pose directly
+# my_pose_frame:
+#   parent_frame: world
+#   pose: [x, y, z, roll, pitch, yaw]
+#   description: "Frame defined by Cartesian pose"
+
+# Option 2: Using joint positions (pose will be computed)
+# my_joint_frame:
+#   parent_frame: world
+#   joint_state:
+#     name: [joint_1, joint_2, joint_3, joint_4, joint_5, joint_6]
+#     position: [j1, j2, j3, j4, j5, j6]
+#   ee_link: grasp_link  # Optional, defaults to grasp_link
+#   description: "Frame defined by joint positions"
+
