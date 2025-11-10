@@ -211,7 +211,7 @@
       />
   <arg
       name="capabilities"
-      default=""
+      default="move_group/ExecuteTaskSolutionCapability"
       description="Non-default MoveGroup capabilities (space separated)"
       />
   <arg

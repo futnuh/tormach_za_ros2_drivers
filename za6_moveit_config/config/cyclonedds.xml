@@ -8,7 +8,7 @@
   <Domain id="any">
     <General>
       <Interfaces>
-        <NetworkInterface autodetermine="false" name="lo" />
+        <NetworkInterface autodetermine="true"/>
       </Interfaces>
       <AllowMulticast>false</AllowMulticast>
     </General>
@@ -17,8 +17,8 @@
       <Peers>
         <Peer Address="127.0.0.1" />
       </Peers>
-      <!-- Increased from default 32 to 64 to support all nodes in teleop_hardware launch -->
-      <MaxAutoParticipantIndex>64</MaxAutoParticipantIndex>
+      <!-- Increased from default 32 to 256 to support all nodes in teleop_hardware launch -->
+      <MaxAutoParticipantIndex>256</MaxAutoParticipantIndex>
     </Discovery>
   </Domain>
 </CycloneDDS>

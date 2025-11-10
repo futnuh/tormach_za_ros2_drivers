@@ -75,6 +75,11 @@ def generate_launch_description():
     # Point to config file with MaxAutoParticipantIndex set to 64
     cyclonedds_config_path = PathJoinSubstitution([cfg_pkg, "config", "cyclonedds.xml"])
 
+    set_dds_env = SetEnvironmentVariable(
+        name="CYCLONEDDS_URI",
+        value=cyclonedds_config_path,
+    )
+
     # 1) Full hardware bringup (HAL + controllers)
     bringup_launch = IncludeLaunchDescription(
         AnyLaunchDescriptionSource(
@@ -204,24 +209,28 @@ def generate_launch_description():
     )
 
     # 6) RViz (optional)
-    # Removed here to avoid duplicate RViz when another launch starts RViz
-
-    return LaunchDescription(
-        [
-            # Set environment variable for CycloneDDS before launching nodes
-            # Use file path with increased participant limit
-            SetEnvironmentVariable(
-                "CYCLONEDDS_URI",
-                cyclonedds_config_path
-            ),
-        ]
-        + declared_arguments
-        + [
-            bringup_launch,
-            joy_node,
-            servo_node,
-            gamepad_bridge,
-        ]
+    moveit_rviz = IncludeLaunchDescription(
+        AnyLaunchDescriptionSource(PathJoinSubstitution([cfg_pkg, "launch", "moveit_rviz.launch.py"])),
+        condition=IfCondition(use_rviz),
+        launch_arguments={
+            "rviz_config": PathJoinSubstitution([cfg_pkg, "config", "moveit.rviz"]),
+        }.items(),
     )
+
+    # 7) Warehouse DB (optional)
+    warehouse_db_launch = IncludeLaunchDescription(
+        AnyLaunchDescriptionSource(PathJoinSubstitution([cfg_pkg, "launch", "warehouse_db.launch.py"])),
+        condition=IfCondition(db),
+    )
+
+    return LaunchDescription(declared_arguments + [
+        set_dds_env,
+        bringup_launch,
+        joy_node,
+        servo_node,
+        gamepad_bridge,
+        moveit_rviz,
+        warehouse_db_launch,
+    ])
 
 
