@@ -14,12 +14,12 @@
   - Run the prototype on real hardware (or high-fidelity simulation) to validate timing, error handling, and viability.
   - Decide if MTC remains the orchestration backbone or if we need complementary tooling.
 
-## C. Harden Docker Image Dependencies
+## C. Harden Docker Image Dependencies ✅
 - **Objective**: Bake all runtime dependencies (see `docs/DOCKER_IMAGE_DEPENDENCIES.md`) into the Docker image so fresh containers are ready to build and launch.
-- **Plan**:
-  - Update `devel_scripts/docker/ros_custom/install_moveit2_deps.sh` (or appropriate stage) to install the documented packages.
-  - Rebuild the image, recreate the container, and run a clean `colcon build` plus the standard teleop launch.
-  - Document the verification procedure and ensure future rebuilds stay in sync with MoveIt/ZA6 requirements.
+- **Status**: Completed — `ros_custom/install_moveit2_deps.sh` now installs the full dependency set (including `ros-humble-py-binding-tools`), the hardened image rebuilts cleanly, and a fresh container passed the throttled `colcon build` plus `teleop_hardware.launch.py` smoke test in fake hardware mode.
+- **Future upkeep**:
+  - Keep `docs/DOCKER_IMAGE_DEPENDENCIES.md` and the install script synchronized when adding new runtime requirements.
+  - Record image tags after each verification run so CI and operators can pull a known-good baseline.
 
 ## D. Automate RViz Layout & Warehouse Setup
 - **Objective**: Remove the manual RViz setup steps performed after each launch.

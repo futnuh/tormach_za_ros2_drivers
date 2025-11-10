@@ -14,6 +14,7 @@ Add the following Debian packages to the MoveIt dependency install script (`ros_
 - `ros-humble-octomap`
 - `ros-humble-launch-param-builder`
 - `ros-humble-ompl`
+- `ros-humble-py-binding-tools`
 - `libfcl-dev`
 - `liboctomap-dev`
 

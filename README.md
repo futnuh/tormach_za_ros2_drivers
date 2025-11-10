@@ -82,8 +82,15 @@ After the Docker image is built, launch the container and build the workspace:
 # Inside the container:
 cd ~/za6_workspace
 source /opt/ros/$ROS_DISTRO/setup.bash
-colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
+MAKEFLAGS=-j1 colcon build --symlink-install --executor sequential --parallel-workers 1 \
+    --cmake-args -DCMAKE_BUILD_TYPE=Release -DCMAKE_BUILD_PARALLEL_LEVEL=1
 source install/setup.bash
+
+> **Note**  
+> We observe that throttling the build to a single job (`MAKEFLAGS=-j1`, sequential executor,
+> and `CMAKE_BUILD_PARALLEL_LEVEL=1`) is effectively required on resource-constrained ZA6
+> controller hardware to prevent colcon from saturating the CPU and hanging during long
+> MoveIt builds.
 ```
 
 **Note:** The first build will take 10-20 minutes as MoveIt2 is compiled from source. If you encounter missing dependency errors during the build, ensure you're using the latest Docker image (see image version bumping below).
@@ -146,10 +153,16 @@ Additional container shells may be started in new terminals.
 ### Build the workspace
 
 From within the container, build the ROS workspace containing this
-repository.
+repository. On ZA6 controller hardware, keep the build single-threaded
+to avoid CPU starvation:
 
     source /opt/ros/$ROS_DISTRO/setup.bash
-    colcon build
+    MAKEFLAGS=-j1 colcon build --symlink-install --executor sequential \
+        --parallel-workers 1 --cmake-args -DCMAKE_BUILD_PARALLEL_LEVEL=1
+
+> **Note**  
+> The ZA6 controller has limited CPU headroom; forcing a single worker prevents colcon from
+> overwhelming the system. Skip `--parallel-workers` if your host has more capacity.
 
 ### Launch hardware, MoveIt and RViz
 
@@ -179,6 +192,8 @@ drive state changes, and the motor brakes will make audible clicks
 as they release.
 
     source install/setup.bash  # If running a new terminal
+    export CYCLONEDDS_URI=/home/pathpilot/Projects/za6_workspace/install/za6_moveit_config/share/za6_moveit_config/config/cyclonedds.xml
+    export CYCLONEDDS_URI=/home/pathpilot/Projects/za6_workspace/install/za6_moveit_config/share/za6_moveit_config/config/cyclonedds.xml
     ros2 service call /enable_drives std_srvs/srv/Trigger
 
 Disable drives with another ROS service.

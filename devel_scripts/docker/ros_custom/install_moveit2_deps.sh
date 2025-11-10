@@ -21,6 +21,7 @@ apt-get install -y \
   ros-humble-image-transport \
   ros-humble-ompl \
   ros-humble-launch-param-builder \
+  ros-humble-py-binding-tools \
   libfcl-dev \
   liboctomap-dev \
   libassimp-dev \
