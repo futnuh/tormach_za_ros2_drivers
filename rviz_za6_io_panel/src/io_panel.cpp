@@ -6,6 +6,7 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QGridLayout>
+#include <QSignalBlocker>
 #include <rviz_common/display_context.hpp>
 #include <sstream>
 #include <iomanip>

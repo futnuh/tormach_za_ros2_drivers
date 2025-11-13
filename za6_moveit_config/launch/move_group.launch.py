@@ -131,6 +131,11 @@ def generate_launch_description():
             "robot_description_kinematics.manipulator.kinematics_solver_search_resolution": 0.005,
             "robot_description_kinematics.manipulator.kinematics_solver_timeout": 0.005,
         },
+        {
+            "planning_pipelines": ["ompl"],
+            "planning_plugin": "ompl_interface/OMPLPlanner",
+            "default_planning_pipeline": "ompl",
+        },
     ]
 
     add_debuggable_node(

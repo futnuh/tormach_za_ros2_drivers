@@ -44,17 +44,43 @@ install(
     lib/${PROJECT_NAME}
 )
 
-# Install Python scripts directly to lib/package_name
+# Install Python helper scripts (preserve directory structure)
 install(
-  FILES
+  DIRECTORY
+    scripts/
+  DESTINATION
+    lib/${PROJECT_NAME}
+  FILES_MATCHING
+    PATTERN "*.py"
+    PATTERN "__pycache__" EXCLUDE
+)
+
+install(
+  PROGRAMS
     scripts/gamepad_to_servo.py
     scripts/publish_frame_markers.py
     scripts/store_frames_to_warehouse.py
     scripts/load_frames_from_warehouse.py
     scripts/get_current_pose.py
+    scripts/run_servo_with_manipulator.sh
   DESTINATION
     lib/${PROJECT_NAME}
-  PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
+)
+
+install(
+  PROGRAMS
+    scripts/mtc/za6_stored_state_sequence.py
+  DESTINATION
+    lib/${PROJECT_NAME}
+)
+
+install(
+  PROGRAMS
+    scripts/mtc/mtc_pipeline_experiment.py
+  DESTINATION
+    lib/${PROJECT_NAME}
+  RENAME
+    mtc_pipeline_experiment.py
 )
 
 install(DIRECTORY config launch DESTINATION share/${PROJECT_NAME})
