@@ -206,6 +206,21 @@ logs.
 Read the `README.md` files in the various `za6_*` source packages for
 more information about available robot controls.
 
+## Applying MoveIt Task Constructor patch
+
+Some of our MTC changes live as a local patch because the upstream
+`moveit_task_constructor` repo is not maintained here. After cloning
+this workspace (or when refreshing upstream), apply the patch stored in
+`patches/0001-mtc-customizations.patch`:
+
+```bash
+cd ~/za6_workspace/src/moveit_task_constructor
+git apply ../tormach_za_ros2_drivers/patches/0001-mtc-customizations.patch
+```
+
+This reintroduces the Python binding updates, execute callback support,
+and controller smoothing behavior required by the ZA6 pipeline.
+
 ## Restore ROS 1 compatibility
 
 The ROS 1 containers depend on an older EtherCAT master running on

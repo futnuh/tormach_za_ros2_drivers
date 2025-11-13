@@ -1,0 +1,288 @@
+diff --git a/capabilities/src/execute_task_solution_capability.h b/capabilities/src/execute_task_solution_capability.h
+index 7bdbc57..77fb6cf 100644
+--- a/capabilities/src/execute_task_solution_capability.h
++++ b/capabilities/src/execute_task_solution_capability.h
+@@ -42,6 +42,8 @@
+ #pragma once
+ 
+ #include <moveit/move_group/move_group_capability.h>
++#include <rclcpp/rclcpp.hpp>
++#include <std_msgs/msg/bool.hpp>
+ #include <rclcpp_action/rclcpp_action.hpp>
+ 
+ #include <moveit_task_constructor_msgs/action/execute_task_solution.hpp>
+@@ -81,6 +83,11 @@ private:
+ 
+ 	ActionServerType::SharedPtr as_;
+ 	std::future<void> last_goal_future_;
++
++	rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr gripper_command_pub_;
++	rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr gripper_status_pub_;
++
++	bool publishGripperState(bool state);
+ };
+ 
+ }  // namespace move_group
+diff --git a/core/include/moveit/task_constructor/solvers/pipeline_planner.h b/core/include/moveit/task_constructor/solvers/pipeline_planner.h
+index ed0aaa6..84ddf5b 100644
+--- a/core/include/moveit/task_constructor/solvers/pipeline_planner.h
++++ b/core/include/moveit/task_constructor/solvers/pipeline_planner.h
+@@ -62,6 +62,7 @@ public:
+ 		moveit::core::RobotModelConstPtr model;
+ 		std::string ns{ "ompl" };
+ 		std::string pipeline{ "ompl" };
++		std::string plugin;
+ 		std::string adapter_param{ "request_adapters" };
+ 	};
+ 
+@@ -85,6 +86,9 @@ public:
+ 	void setPlannerId(const std::string& planner) { setProperty("planner", planner); }
+ 	std::string getPlannerId() const override { return properties().get<std::string>("planner"); }
+ 
++	void setPlanningPlugin(const std::string& plugin);
++	const std::string& getPlanningPlugin() const { return plugin_override_; }
++
+ 	void init(const moveit::core::RobotModelConstPtr& robot_model) override;
+ 
+ 	Result plan(const planning_scene::PlanningSceneConstPtr& from, const planning_scene::PlanningSceneConstPtr& to,
+@@ -101,6 +105,7 @@ protected:
+ 	            robot_trajectory::RobotTrajectoryPtr& result);
+ 
+ 	std::string pipeline_name_;
++	std::string plugin_override_;
+ 	planning_pipeline::PlanningPipelinePtr planner_;
+ 	rclcpp::Node::SharedPtr node_;
+ };
+diff --git a/core/include/moveit/task_constructor/stage.h b/core/include/moveit/task_constructor/stage.h
+index 82d01c7..fa9bf83 100644
+--- a/core/include/moveit/task_constructor/stage.h
++++ b/core/include/moveit/task_constructor/stage.h
+@@ -45,6 +45,7 @@
+ #include <moveit/task_constructor/storage.h>
+ #include <vector>
+ #include <list>
++#include <functional>
+ 
+ #define PRIVATE_CLASS(Class)                   \
+ 	friend class Class##Private;                \
+@@ -257,6 +258,10 @@ public:
+ 
+ 	double getTotalComputeTime() const;
+ 
++	using ExecuteCallback = std::function<bool(const SolutionBase&)>;
++	void setExecuteCallback(ExecuteCallback cb);
++	const ExecuteCallback& executeCallback() const;
++
+ protected:
+ 	/// Stage can only be instantiated through derived classes
+ 	Stage(StagePrivate* impl);
+diff --git a/core/include/moveit/task_constructor/stage_p.h b/core/include/moveit/task_constructor/stage_p.h
+index 124a2eb..6b2693c 100644
+--- a/core/include/moveit/task_constructor/stage_p.h
++++ b/core/include/moveit/task_constructor/stage_p.h
+@@ -200,6 +200,7 @@ protected:
+ 
+ 	// functions called for each new solution
+ 	std::list<Stage::SolutionCallback> solution_cbs_;
++	Stage::ExecuteCallback execute_callback_;
+ 
+ 	std::list<InterfaceState> states_;  // storage for created states
+ 	ordered<SolutionBaseConstPtr> solutions_;
+diff --git a/core/python/bindings/src/core.cpp b/core/python/bindings/src/core.cpp
+index 7eeda49..354d491 100644
+--- a/core/python/bindings/src/core.cpp
++++ b/core/python/bindings/src/core.cpp
+@@ -200,7 +200,27 @@ void export_core(pybind11::module& m) {
+ 	        .def("init", &Stage::init,
+ 	             "Initialize the stage once before planning. "
+ 	             "Will setup properties configured for initialization from parent.",
+-	             "robot_model"_a);
++	             "robot_model"_a)
++	        .def(
++	            "setExecuteCallback",
++	            [](Stage& self, const py::object& callback) {
++	                if (callback.is_none()) {
++	                    self.setExecuteCallback(Stage::ExecuteCallback());
++	                    return;
++	                }
++	                py::function cb = py::reinterpret_borrow<py::function>(callback);
++	                self.setExecuteCallback([cb](const SolutionBase&) {
++	                    py::gil_scoped_acquire acquire;
++	                    py::object result = cb();
++	                    if (py::isinstance<py::bool_>(result))
++	                        return result.cast<bool>();
++	                    return true;
++	                });
++	            },
++	            "Set a Python callable executed when the stage solution is executed.",
++            "callback"_a)
++        .def("setTrajectoryExecutionInfo", &Stage::setTrajectoryExecutionInfo,
++             "Set trajectory execution metadata assigned to SubTrajectory messages.", "info"_a);
+ 
+ 	py::enum_<Stage::PropertyInitializerSource>(
+ 	    stage, "PropertyInitializerSource",
+diff --git a/core/python/bindings/src/solvers.cpp b/core/python/bindings/src/solvers.cpp
+index 9845223..bb0718e 100644
+--- a/core/python/bindings/src/solvers.cpp
++++ b/core/python/bindings/src/solvers.cpp
+@@ -82,6 +82,8 @@ void export_solvers(py::module& m) {
+ 	    .property<double>("goal_joint_tolerance", "float: Tolerance for reaching joint goals")
+ 	    .property<double>("goal_position_tolerance", "float: Tolerance for reaching position goals")
+ 	    .property<double>("goal_orientation_tolerance", "float: Tolerance for reaching orientation goals")
++	    .def_property("planning_plugin", &PipelinePlanner::getPlanningPlugin, &PipelinePlanner::setPlanningPlugin,
++	                  "str: Override the planning pipeline plugin to load (e.g., 'ompl_interface/OMPLPlanner')")
+ 	    .def(py::init<const rclcpp::Node::SharedPtr&, const std::string&>(), "node"_a,
+ 	         "pipeline"_a = std::string("ompl"));
+ 
+diff --git a/core/python/bindings/src/stages.cpp b/core/python/bindings/src/stages.cpp
+index 5082251..0bb62f7 100644
+--- a/core/python/bindings/src/stages.cpp
++++ b/core/python/bindings/src/stages.cpp
+@@ -96,6 +96,21 @@ void export_stages(pybind11::module& m) {
+ 		For an example, see :ref:`How-To-Guides <subsubsec-howto-modify-planning-scene>`.
+ 		)")
+ 		.def(py::init<const std::string&>(), "name"_a = std::string("modify planning scene"))
++		.def(
++		    "setCallback",
++		    [](ModifyPlanningScene& self, const py::object& callback) {
++			    if (callback.is_none()) {
++				    self.setCallback(ModifyPlanningScene::ApplyCallback());
++				    return;
++			    }
++			    py::function cb = py::reinterpret_borrow<py::function>(callback);
++			    self.setCallback([cb](const planning_scene::PlanningScenePtr&, const PropertyMap&) {
++				    py::gil_scoped_acquire acquire;
++				    cb();
++			    });
++		    },
++		    "Set a Python callable that will be executed when the stage applies changes",
++		    "callback"_a)
+ 		.def("attachObject", &ModifyPlanningScene::attachObject, "Attach an object to a robot link", "name"_a, "link"_a)
+ 		.def("detachObject", &ModifyPlanningScene::detachObject, "Detach an object from a robot link", "name"_a, "link"_a)
+ 		.def("attachObjects", [](ModifyPlanningScene& self, const py::object& names,
+diff --git a/core/src/solvers/pipeline_planner.cpp b/core/src/solvers/pipeline_planner.cpp
+index d0d44e7..40c0b46 100644
+--- a/core/src/solvers/pipeline_planner.cpp
++++ b/core/src/solvers/pipeline_planner.cpp
+@@ -42,6 +42,9 @@
+ #include <moveit/planning_pipeline/planning_pipeline.h>
+ #include <moveit_msgs/msg/motion_plan_request.hpp>
+ #include <moveit/kinematic_constraints/utils.h>
++#include <rclcpp/exceptions.hpp>
++#include <rclcpp/parameter.hpp>
++#include <rclcpp/rclcpp.hpp>
+ 
+ #if __has_include(<tf2_eigen/tf2_eigen.hpp>)
+ #include <tf2_eigen/tf2_eigen.hpp>
+@@ -87,14 +90,44 @@ planning_pipeline::PlanningPipelinePtr PipelinePlanner::create(const rclcpp::Nod
+ 
+ 	std::string pipeline_ns = spec.ns;
+ 	const std::string parameter_name = pipeline_ns + "." + PLUGIN_PARAMETER_NAME;
++
++	if (!spec.plugin.empty()) {
++		try {
++			if (!node->has_parameter(parameter_name))
++				node->declare_parameter(parameter_name, spec.plugin);
++			else
++				node->set_parameter(rclcpp::Parameter(parameter_name, spec.plugin));
++		} catch (const rclcpp::exceptions::ParameterNotDeclaredException&) {
++			node->declare_parameter(parameter_name, spec.plugin);
++		} catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException&) {
++			node->set_parameter(rclcpp::Parameter(parameter_name, spec.plugin));
++		} catch (const std::exception& ex) {
++			RCLCPP_DEBUG(node->get_logger(),
++			             "Failed to seed planning plugin parameter '%s' with override '%s': %s",
++			             parameter_name.c_str(), spec.plugin.c_str(), ex.what());
++		}
++	}
+ 	// fallback to old structure for pipeline parameters in MoveIt
+ 	if (!node->has_parameter(parameter_name)) {
+ 		node->declare_parameter(parameter_name, rclcpp::ParameterType::PARAMETER_STRING);
+ 	}
+-	if (std::string parameter; !node->get_parameter(parameter_name, parameter)) {
+-		RCLCPP_WARN(node->get_logger(), "Failed to find '%s.%s'. %s", pipeline_ns.c_str(), PLUGIN_PARAMETER_NAME,
+-		            "Attempting to load pipeline from old parameter structure. Please update your MoveIt config.");
+-		pipeline_ns = "move_group";
++	std::string parameter;
++	if (!node->get_parameter(parameter_name, parameter) || parameter.empty()) {
++		if (spec.plugin.empty()) {
++			RCLCPP_WARN(node->get_logger(), "Failed to find '%s.%s'. %s", pipeline_ns.c_str(), PLUGIN_PARAMETER_NAME,
++			            "Attempting to load pipeline from old parameter structure. Please update your MoveIt config.");
++			pipeline_ns = "move_group";
++		} else {
++			try {
++				if (!node->has_parameter(parameter_name))
++					node->declare_parameter(parameter_name, spec.plugin);
++				node->set_parameter(rclcpp::Parameter(parameter_name, spec.plugin));
++			} catch (const std::exception& ex) {
++				RCLCPP_WARN(node->get_logger(),
++				            "Unable to register planning plugin override '%s' for parameter '%s': %s",
++				            spec.plugin.c_str(), parameter_name.c_str(), ex.what());
++			}
++		}
+ 	}
+ 
+ 	PlannerCache::PlannerID id(pipeline_ns, spec.adapter_param);
+@@ -112,7 +145,7 @@ planning_pipeline::PlanningPipelinePtr PipelinePlanner::create(const rclcpp::Nod
+ }
+ 
+ PipelinePlanner::PipelinePlanner(const rclcpp::Node::SharedPtr& node, const std::string& pipeline_name)
+-  : pipeline_name_{ pipeline_name }, node_(node) {
++  : pipeline_name_{ pipeline_name }, plugin_override_(), planner_(), node_(node) {
+ 	auto& p = properties();
+ 	p.declare<std::string>("planner", "", "planner id");
+ 
+@@ -136,12 +169,22 @@ PipelinePlanner::PipelinePlanner(const planning_pipeline::PlanningPipelinePtr& p
+ 	planner_ = planning_pipeline;
+ }
+ 
++void PipelinePlanner::setPlanningPlugin(const std::string& plugin) {
++	plugin_override_ = plugin;
++	if (planner_) {
++		RCLCPP_WARN(node_ ? node_->get_logger() : rclcpp::get_logger("PipelinePlanner"),
++		            "setPlanningPlugin() called after pipeline initialization; new requests will use '%s'",
++		            plugin.c_str());
++	}
++}
++
+ void PipelinePlanner::init(const core::RobotModelConstPtr& robot_model) {
+ 	if (!planner_) {
+ 		Specification spec;
+ 		spec.model = robot_model;
+ 		spec.pipeline = pipeline_name_;
+ 		spec.ns = pipeline_name_;
++		spec.plugin = plugin_override_;
+ 		planner_ = create(node_, spec);
+ 	} else if (robot_model != planner_->getRobotModel()) {
+ 		throw std::runtime_error(
+diff --git a/core/src/stage.cpp b/core/src/stage.cpp
+index 758b607..2b65413 100644
+--- a/core/src/stage.cpp
++++ b/core/src/stage.cpp
+@@ -382,6 +382,14 @@ void Stage::setName(const std::string& name) {
+ 	pimpl_->name_ = name;
+ }
+ 
++void Stage::setExecuteCallback(ExecuteCallback cb) {
++	pimpl_->execute_callback_ = std::move(cb);
++}
++
++const Stage::ExecuteCallback& Stage::executeCallback() const {
++	return pimpl_->execute_callback_;
++}
++
+ uint32_t Stage::introspectionId() const {
+ 	if (!pimpl_->introspection_)
+ 		throw std::runtime_error("Task is not initialized yet or Introspection was disabled.");
+diff --git a/demo/CMakeLists.txt b/demo/CMakeLists.txt
+index 5643c58..8316c9e 100644
+--- a/demo/CMakeLists.txt
++++ b/demo/CMakeLists.txt
+@@ -79,6 +79,7 @@ install(PROGRAMS
+         scripts/multi_planner.py
+         scripts/pickplace.py
+         scripts/properties.py
++        scripts/stored_state_sequence.py
+         DESTINATION lib/${PROJECT_NAME})
+ 
+ install(DIRECTORY launch config
