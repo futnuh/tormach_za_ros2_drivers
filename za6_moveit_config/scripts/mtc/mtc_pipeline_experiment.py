@@ -180,6 +180,16 @@ def _declare_parameter(node, name: str, value):
         pass
 
 
+def _declare_parameter_tree(node, prefix: str, data):
+    full_name = prefix if prefix else ""
+    if isinstance(data, dict):
+        for sub_key, sub_value in data.items():
+            new_prefix = f"{full_name}.{sub_key}" if full_name else sub_key
+            _declare_parameter_tree(node, new_prefix, sub_value)
+    else:
+        _declare_parameter(node, full_name, data)
+
+
 def configure_ompl_pipeline(node) -> None:
     """Declare OMPL and kinematics parameters on the given rclcpp node."""
     share_dir = Path(get_package_share_directory("za6_moveit_config"))
@@ -187,15 +197,13 @@ def configure_ompl_pipeline(node) -> None:
     with ompl_yaml.open("r") as stream:
         ompl_params = yaml.safe_load(stream)
 
-    for key, value in ompl_params.items():
-        _declare_parameter(node, f"ompl.{key}", value)
+    _declare_parameter_tree(node, "ompl", ompl_params)
 
     kin_yaml = share_dir / "config" / "kinematics.yaml"
     with kin_yaml.open("r") as stream:
         kin_params = yaml.safe_load(stream)
 
-    for key, value in kin_params.items():
-        _declare_parameter(node, f"robot_description_kinematics.{key}", value)
+    _declare_parameter_tree(node, "robot_description_kinematics", kin_params)
 
     declared = {
         "planning_pipelines": ["ompl"],
@@ -212,25 +220,6 @@ def configure_ompl_pipeline(node) -> None:
     print("[INFO] Declared MTC planning parameters:")
     for key, value in declared.items():
         print(f"  {key}: {value}")
-
-    param_name = "move_group.planning_plugin"
-    try:
-        has_param = node.has_parameter(param_name)  # type: ignore[attr-defined]
-        print(f"[DEBUG] node.has_parameter('{param_name}') -> {has_param}", flush=True)
-    except Exception as exc:
-        print(f"[DEBUG] has_parameter('{param_name}') raised: {exc}", flush=True)
-    try:
-        param = node.get_parameter(param_name)  # type: ignore[attr-defined]
-        print(f"[DEBUG] get_parameter('{param_name}') -> type={type(param.value)} value={param.value}", flush=True)
-    except Exception as exc:
-        print(f"[DEBUG] get_parameter('{param_name}') raised: {exc}", flush=True)
-    try:
-        listed = node.list_parameters(prefixes=["move_group"], depth=5)  # type: ignore[attr-defined]
-        names = getattr(listed, "names", listed)
-        print(f"[DEBUG] list_parameters(['move_group'], depth=5) -> {names}", flush=True)
-    except Exception as exc:
-        print(f"[DEBUG] list_parameters(['move_group'], depth=5) raised: {exc}", flush=True)
-
 
 def _print_move_group_planning_params() -> None:
     """Log MoveGroup planner-related parameters via ROS 2 CLI."""
@@ -300,7 +289,7 @@ def build_task(
     task.add(stages.CurrentState("current_state"))
 
     pipeline = core.PipelinePlanner(mtc_node, "move_group")
-    pipeline.planner = "RRTConnectkConfigDefault"
+    pipeline.planning_plugin = "ompl_interface/OMPLPlanner"
 
     toggle_open = create_toggle_stage(
         "Toggle gripper open",

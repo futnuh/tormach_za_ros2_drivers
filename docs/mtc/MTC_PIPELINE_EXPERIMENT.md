@@ -9,8 +9,9 @@
 - Added a temporary patch to the cloned `moveit_task_constructor` sources exposing `Stage::setExecuteCallback()` and `ModifyPlanningScene::setCallback()` to Python. The binding lives in `core/python/bindings/src/core.cpp`, with supporting C++ changes in `core/include/moveit/task_constructor/stage.{h,p.h}` and `core/src/stage.cpp`. **These edits must be rebuilt (`colcon build --packages-select moveit_task_constructor_core ...`) and will need to be carried forward as a patch or fork.**
 - `create_toggle_stage()` now instantiates a `ModifyPlanningScene` stage and registers a Python execute callback, so the digital output fires only during execution. The helper returns a boolean result to signal success/failure back into the pipeline.
 - HAL helper `za6_moveit_config/scripts/io/gripper_io.py` publishes to `/hal_io/dout01` and mirrors state on `/hal_io/digital_out_1`, honoring BEST_EFFORT QoS; the same helper is reused by the execute callback.
-- OMPL configuration parameters are declared on the MTC node via `configure_ompl_pipeline()`, but RViz still warns about `ompl.planning_plugin` missing. CHOMP remains the default until the planner plugin parameterization is resolved.
-- Latest debugging (2025-11-13) shows the Python `rclcpp.Node` shim behind MTC lacks `has_parameter()/get_parameter()/list_parameters`, so `PipelinePlanner::create()` throws when probing `move_group.planning_plugin`. We now instantiate `core.PipelinePlanner(mtc_node, "move_group")` to reuse MoveGroup’s already-configured OMPL pipeline; this consistently plans with OMPL even though the warning persists.
+- OMPL configuration parameters are declared on the MTC node via `configure_ompl_pipeline()` (which now flattens nested YAML into discrete ROS parameters), and `PipelinePlanner::create()` accepts a direct plugin override (`setPlanningPlugin()`), so the pipeline loads `ompl_interface/OMPLPlanner` without falling back to CHOMP. Planner warnings about missing configurations are gone; only the standard “planning volume not specified” notice remains. The move group logs confirm successful execution despite the `error_code: 1` print, which maps to `MoveItErrorCode::SUCCESS`.
+- `{`24:latest path? Need update. change to new logfile? Should we reference new run? maybe mention path with timestamp? Use new file? we can reference same path or new. maybe mention SUCCEEDED.}
+- Latest debugging (2025-11-13) showed the Python `rclcpp.Node` shim behind MTC lacks `has_parameter()/get_parameter()/list_parameters`. The new override path sets `pipeline.planning_plugin = "ompl_interface/OMPLPlanner"` in the experiment script, eliminating the CHOMP warning.
 - RViz “Exec” continues to replay untimed cached trajectories; auto-execute is the only safe execution path until an upstream fix is implemented.
 
 ## Representative Scenario
@@ -88,9 +89,9 @@
 - Decide whether additional orchestration tooling (state machines, behavior trees) is necessary based on experiment outcomes.
 
 ## Upstream Follow-up (MoveIt 2 / MTC Core)
-- Either extend the Python binding for `rclcpp::Node` so MTC scripts can call `has_parameter()`, `get_parameter()`, and `list_parameters()`, or
-- Patch `moveit::task_constructor::solvers::PipelinePlanner::create()` to gracefully handle missing Python parameter APIs (e.g., catch the AttributeError and avoid falling back to CHOMP).
-- With one of the above in place, we can remove the `"move_group"` namespace workaround and eliminate the CHOMP warning.
+- Submit the local patch adding `PipelinePlanner::setPlanningPlugin()` and the Python binding exposure upstream.
+- Optional future work: extend the Python `rclcpp::Node` binding to expose `has_parameter()` / `get_parameter()` / `list_parameters()` so the legacy lookup path can be restored without overrides.
+- Consider upstreaming a quality-of-life fix so `TrajectoryExecutionInfo` coming from Python stages retains controller names, avoiding warnings like “stage N has no controllers.”
 
 ---
 

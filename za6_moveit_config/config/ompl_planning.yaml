@@ -11,3 +11,17 @@ planner_configs:
   RRTConnectkConfigDefault:
     type: geometric::RRTConnect
     range: 0.3
+
+manipulator:
+  planner_configs:
+    - RRTConnectkConfigDefault
+  default_planner_config: RRTConnectkConfigDefault
+  default_workspace_bounds:
+    min_x: -2.0
+    max_x: 2.0
+    min_y: -2.0
+    max_y: 2.0
+    min_z: 0.0
+    max_z: 2.0
+  projection_evaluator: joints(joint_1,joint_2)
+  longest_valid_segment_fraction: 0.005
