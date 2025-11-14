@@ -70,7 +70,16 @@
 4. **Timed execution**: reuse `_parameterize_solution` helpers to keep trajectories controller-safe.
 5. **Failure injection**: force vision service timeout to observe branch and recovery.
 6. **Real hardware check** (optional final step after fake-hardware success).
-7. **Record & replay** (optional): capture a timed solution once with
+7. **Observe execution**: the `/execute_task_solution` action publishes
+   feedback messages containing the active `sub_id/sub_no`. Run
+   ```
+   ros2 action feedback /execute_task_solution \
+     moveit_task_constructor_msgs/action/ExecuteTaskSolution
+   ```
+   to watch the currently executing substage. When you launch the task
+   from RViz via the **Exec** button, the MTC panel uses the same
+   feedback stream to highlight the active stage in the UI.
+8. **Record & replay** (optional): capture a timed solution once with
    ```
    ros2 topic echo /solution moveit_task_constructor_msgs/msg/Solution \
      --once --qos-durability transient_local --qos-reliability reliable \
