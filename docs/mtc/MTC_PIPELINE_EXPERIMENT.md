@@ -70,6 +70,19 @@
 4. **Timed execution**: reuse `_parameterize_solution` helpers to keep trajectories controller-safe.
 5. **Failure injection**: force vision service timeout to observe branch and recovery.
 6. **Real hardware check** (optional final step after fake-hardware success).
+7. **Record & replay** (optional): capture a timed solution once with
+   ```
+   ros2 topic echo /solution moveit_task_constructor_msgs/msg/Solution \
+     --once --qos-durability transient_local --qos-reliability reliable \
+     --qos-history keep_last --qos-depth 10 --full-length > /tmp/mtc_solution.yaml
+   ```
+   Wrap it under the action’s `solution:` field and rerun later via:
+   ```
+   ( printf 'solution:\n'; sed 's/^/  /' /tmp/mtc_solution.yaml ) \
+     | ros2 action send_goal /execute_task_solution \
+       moveit_task_constructor_msgs/action/ExecuteTaskSolution -
+   ```
+   This replays the exact task trajectory without re-planning.
 
 ## Data Capture & Analysis
 - Use `ros2 bag record --include-hidden-topics` for controller action feedback.
@@ -88,6 +101,9 @@
 - Implement the scripted pipeline following this plan.
 - Update documentation (`MTC_EXPERIMENTS.md`, roadmap) with findings.
 - Decide whether additional orchestration tooling (state machines, behavior trees) is necessary based on experiment outcomes.
+
+## TODO / Follow-up Pool
+- A. Guard gripper-toggle stages against drive faults so execution stops (and skips toggles) if motor power drops mid-task.
 
 ## Upstream Follow-up (MoveIt 2 / MTC Core)
 - Submit the local patch adding `PipelinePlanner::setPlanningPlugin()` and the Python binding exposure upstream.
