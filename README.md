@@ -21,112 +21,85 @@ the complete stack into a Docker image.  The Docker image can be used
 on the Tormach robot controller to run real hardware, and can also be
 used on any host with Docker engine to run in sim mode.
 
-## Setup with Forked MoveIt2 (feature/forked-moveit2 branch)
+## Standard Setup (za6-devel / main branch)
 
-**Important**: The `feature/forked-moveit2` branch requires building MoveIt2 from a forked source that includes ZA6-specific patches. This setup prevents the Docker image from installing upstream MoveIt2 packages, ensuring only the patched version is used.
-
-### Workspace Setup
-
-Create a ROS 2 workspace and clone the required repositories:
+Create a ROS 2 workspace and clone this repository:
 
 ```bash
-# Create workspace
 mkdir -p ~/za6_workspace/src
 cd ~/za6_workspace/src
-
-# Clone the forked MoveIt2 repository with ZA6 patches
-git clone <your-moveit2-fork-url> moveit2
-cd moveit2
-git checkout feature/za6-teleoperation
-cd ..
-
-# Clone additional MoveIt2 dependencies
-# These are required by MoveIt2 but are separate repositories
-git clone https://github.com/ros-planning/moveit_msgs.git -b humble
-git clone https://github.com/ros-planning/moveit_resources.git -b humble
-
-# Clone this repository
-git clone <your-tormach-za-ros2-drivers-fork-url> tormach_za_ros2_drivers
-cd tormach_za_ros2_drivers
-git checkout feature/forked-moveit2
-cd ../..
-```
-
-Your workspace structure should look like:
-```
-za6_workspace/
-└── src/
-    ├── moveit2/                  # Forked MoveIt2 with ZA6 servo patches
-    ├── moveit_msgs/              # MoveIt messages (required dependency)
-    ├── moveit_resources/         # MoveIt resources (required dependency)  
-    └── tormach_za_ros2_drivers/  # This repository (feature/forked-moveit2)
+git clone https://github.com/tormach/tormach_za_ros2_drivers.git
 ```
 
 ### Building the Docker Image
-
-Build the Docker image from the workspace root:
 
 ```bash
 cd ~/za6_workspace
 ./src/tormach_za_ros2_drivers/devel_scripts/docker-dev.sh -b
 ```
 
-### Building the Workspace
-
-After the Docker image is built, launch the container and build the workspace:
+### Launch the development container
 
 ```bash
-# Launch container
 ./src/tormach_za_ros2_drivers/devel_scripts/docker-dev.sh
+```
 
-# Inside the container:
+This drops you into a shell inside the new container. Start additional shells with:
+
+```bash
+docker exec -itu $USER ros2-devel bash
+```
+
+### Apply MoveIt Task Constructor patch
+
+Our MTC integration relies on a small upstream patch (Python bindings,
+execute callbacks, and controller smoothing). After cloning the
+workspace—but before running the first build—apply the patch stored in
+this repo:
+
+```bash
+cd ~/za6_workspace/src/moveit_task_constructor
+git apply ../tormach_za_ros2_drivers/patches/0001-mtc-customizations.patch
+```
+
+Reapply the patch whenever you refresh the upstream
+`moveit_task_constructor` source.
+
+### Build the workspace
+
+Inside the container:
+
+```bash
 cd ~/za6_workspace
 source /opt/ros/$ROS_DISTRO/setup.bash
 MAKEFLAGS=-j1 colcon build --symlink-install --executor sequential --parallel-workers 1 \
     --cmake-args -DCMAKE_BUILD_TYPE=Release -DCMAKE_BUILD_PARALLEL_LEVEL=1
 source install/setup.bash
-
-> **Note**  
-> We observe that throttling the build to a single job (`MAKEFLAGS=-j1`, sequential executor,
-> and `CMAKE_BUILD_PARALLEL_LEVEL=1`) is effectively required on resource-constrained ZA6
-> controller hardware to prevent colcon from saturating the CPU and hanging during long
-> MoveIt builds.
 ```
 
-**Note:** The first build will take 10-20 minutes as MoveIt2 is compiled from source. If you encounter missing dependency errors during the build, ensure you're using the latest Docker image (see image version bumping below).
-
-### About the MoveIt2 Patches
-
-The forked MoveIt2 repository includes patches to MoveIt Servo that change hardcoded Franka Panda robot defaults to ZA6-specific values:
-
-- `robot_link_command_frame`: `panda_link0` → `tool0`
-- `command_out_topic`: `/panda_arm_controller/joint_trajectory` → `/joint_trajectory_controller/joint_trajectory`
-- `move_group_name`: `panda_arm` → `manipulator`
-- `planning_frame`: `panda_link0` → `world`
-- `ee_frame_name`: `panda_link8` → `grasp_link`
-
-See `patches/README.md` in this repository for details on the patch file.
-
-The `feature/forked-moveit2` branch of this repository configures the Docker build to skip all upstream MoveIt2 apt packages, ensuring that only the patched version from source is used.
-
-## Building without Forked MoveIt2 (main branch - Standard Setup)
-
-If using the standard `main` or `humble` branch (without forked MoveIt2), follow the simpler setup:
+The ZA6 controller has limited CPU headroom; forcing a single worker prevents colcon from
+overwhelming the system. On a more capable workstation you can drop the throttling:
 
 ```bash
-mkdir -p ~/tormach_za_ros2_ws/src
-cd ~/tormach_za_ros2_ws
-git clone https://github.com/tormach/tormach_za_ros2_drivers.git \
-    src/tormach_za_ros2_drivers
-./src/tormach_za_ros2_drivers/devel_scripts/docker-dev.sh -b
+source /opt/ros/$ROS_DISTRO/setup.bash
+colcon build --symlink-install
+source install/setup.bash
 ```
 
-**NOTE:** Because the containerized `docker build` environment has
-limited access to the host environment, the build will fail if running
-on a Tormach controller with the EtherCAT master running.  Before
-building, stop the master:
+If you are building directly on a ZA6 controller, stop the legacy EtherCAT master before
+running the Docker build or container:
 
-    sudo systemctl stop ethercat
+```
+sudo systemctl stop ethercat
+```
+
+## Legacy Setup with Forked MoveIt2 (feature/forked-moveit2 branch)
+
+Older deployments used a forked MoveIt2 tree that bakes in ZA6-specific Servo patches.
+If you need that workflow, check out the `feature/forked-moveit2` branch of this repo
+and clone the MoveIt2, `moveit_msgs`, and `moveit_resources` repositories alongside it,
+then follow the same Docker build steps above. See `patches/README.md` for details
+on the Servo modifications in that branch.
 
 ## Running the ZA6 on ROS 2
 
@@ -150,6 +123,21 @@ Additional container shells may be started in new terminals.
 
     docker exec -itu $USER ros2-devel bash
 
+### Apply MoveIt Task Constructor patch
+
+Our MTC integration relies on a small upstream patch (Python bindings,
+execute callbacks, and controller smoothing). After cloning the
+workspace—but before running the first build—apply the patch stored in
+this repo:
+
+```bash
+cd ~/za6_workspace/src/moveit_task_constructor
+git apply ../tormach_za_ros2_drivers/patches/0001-mtc-customizations.patch
+```
+
+Reapply the patch whenever you refresh the upstream
+`moveit_task_constructor` source.
+
 ### Build the workspace
 
 From within the container, build the ROS workspace containing this
@@ -166,16 +154,17 @@ to avoid CPU starvation:
 
 ### Launch hardware, MoveIt and RViz
 
-Once the workspace is built, start the robot hardware, MoveIt
-configuration and RViz:
+Once the workspace is built, start the full teleop stack (HAL hardware, MoveIt, RViz, warehouse, Servo, gamepad bridge):
 
-    source install/setup.bash
-    ros2 launch za6_bringup bringup.launch
-
-Extra launch arguments; see the `za6_bringup` package `README.md`:
-
-    hal_debug_level:=5    Enable verbose hardware debugging
-    sim_mode:=true        Run sim HAL hardware
+```
+source install/setup.bash
+ros2 launch za6_moveit_config teleop_hardware.launch.py \
+  use_fake_hardware:=false sim_mode:=false use_sim_time:=false \
+  use_rviz:=true \
+  servo_config:=servo_config.yaml \
+  gamepad_config:=gamepad_config.yaml \
+  db:=true
+```
 
 ### Enable drives
 
@@ -193,7 +182,6 @@ as they release.
 
     source install/setup.bash  # If running a new terminal
     export CYCLONEDDS_URI=/home/pathpilot/Projects/za6_workspace/install/za6_moveit_config/share/za6_moveit_config/config/cyclonedds.xml
-    export CYCLONEDDS_URI=/home/pathpilot/Projects/za6_workspace/install/za6_moveit_config/share/za6_moveit_config/config/cyclonedds.xml
     ros2 service call /enable_drives std_srvs/srv/Trigger
 
 Disable drives with another ROS service.
@@ -205,21 +193,6 @@ logs.
 
 Read the `README.md` files in the various `za6_*` source packages for
 more information about available robot controls.
-
-## Applying MoveIt Task Constructor patch
-
-Some of our MTC changes live as a local patch because the upstream
-`moveit_task_constructor` repo is not maintained here. After cloning
-this workspace (or when refreshing upstream), apply the patch stored in
-`patches/0001-mtc-customizations.patch`:
-
-```bash
-cd ~/za6_workspace/src/moveit_task_constructor
-git apply ../tormach_za_ros2_drivers/patches/0001-mtc-customizations.patch
-```
-
-This reintroduces the Python binding updates, execute callback support,
-and controller smoothing behavior required by the ZA6 pipeline.
 
 ## Restore ROS 1 compatibility
 
