@@ -37,6 +37,7 @@ import yaml
 
 START_STATE_NAME = "WALL_NEUTRAL"
 PREGRASP_STATE_NAME = "DOOR_FACING_NEUTRAL"
+HELLO_STATE_NAME = "DOOR_HELLO"
 RETREAT_STATE_NAME = "WALL_NEUTRAL"
 
 PLANNING_GROUP = "manipulator"
@@ -305,6 +306,18 @@ def build_task(
     task.add(move_to_start)
     task.add(toggle_open)
 
+    move_to_pregrasp = stages.MoveTo(f"Move to {PREGRASP_STATE_NAME}", pipeline)
+    move_to_pregrasp.group = PLANNING_GROUP
+    move_to_pregrasp.setGoal(joint_targets[PREGRASP_STATE_NAME])
+    move_to_pregrasp.properties["controller"] = "joint_trajectory_controller"
+    task.add(move_to_pregrasp)
+
+    move_to_hello = stages.MoveTo(f"Move to {HELLO_STATE_NAME}", pipeline)
+    move_to_hello.group = PLANNING_GROUP
+    move_to_hello.setGoal(joint_targets[HELLO_STATE_NAME])
+    move_to_hello.properties["controller"] = "joint_trajectory_controller"
+    task.add(move_to_hello)
+
     toggle_close = create_toggle_stage(
         "Toggle gripper close",
         gripper_controller,
@@ -312,12 +325,13 @@ def build_task(
         wait_for_feedback=wait_for_feedback,
         feedback_timeout=feedback_timeout,
     )
-    move_to_pregrasp = stages.MoveTo(f"Move to {PREGRASP_STATE_NAME}", pipeline)
-    move_to_pregrasp.group = PLANNING_GROUP
-    move_to_pregrasp.setGoal(joint_targets[PREGRASP_STATE_NAME])
-    move_to_pregrasp.properties["controller"] = "joint_trajectory_controller"
-    task.add(move_to_pregrasp)
     task.add(toggle_close)
+
+    retreat_to_pregrasp = stages.MoveTo("Retreat to DOOR_FACING_NEUTRAL", pipeline)
+    retreat_to_pregrasp.group = PLANNING_GROUP
+    retreat_to_pregrasp.setGoal(joint_targets[PREGRASP_STATE_NAME])
+    retreat_to_pregrasp.properties["controller"] = "joint_trajectory_controller"
+    task.add(retreat_to_pregrasp)
 
     move_to_retreat = stages.MoveTo(f"Retreat to {RETREAT_STATE_NAME}", pipeline)
     move_to_retreat.group = PLANNING_GROUP
@@ -330,7 +344,9 @@ def build_task(
 
 def main() -> None:
     args = _parse_args()
-    joint_targets = fetch_named_states([START_STATE_NAME, PREGRASP_STATE_NAME, RETREAT_STATE_NAME])
+    joint_targets = fetch_named_states(
+        [START_STATE_NAME, PREGRASP_STATE_NAME, HELLO_STATE_NAME, RETREAT_STATE_NAME]
+    )
 
     rclcpp.init()
     mtc_node = rclcpp.Node("za6_mtc_pipeline_experiment")

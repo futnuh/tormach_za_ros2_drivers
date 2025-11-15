@@ -5,7 +5,7 @@
 - Capture gaps that would require upstream patches or companion services so we can decide if MTC remains the primary task engine for the ZA6.
 
 ## Current Implementation Status (2025-11-11)
-- `mtc_pipeline_experiment.py` now runs end-to-end on hardware with synchronized gripper toggles and motion execution when invoked via `--auto-execute --wait-for-feedback`.
+- `mtc_pipeline_experiment.py` now runs end-to-end on hardware with synchronized gripper toggles and motion execution when invoked via `--auto-execute --wait-for-feedback`. The stage sequence currently is: current state → move to WALL_NEUTRAL → toggle open → move to DOOR_FACING_NEUTRAL → move to DOOR_HELLO → toggle close → retreat to DOOR_FACING_NEUTRAL → retreat to WALL_NEUTRAL.
 - Added a temporary patch to the cloned `moveit_task_constructor` sources exposing `Stage::setExecuteCallback()` and `ModifyPlanningScene::setCallback()` to Python. The binding lives in `core/python/bindings/src/core.cpp`, with supporting C++ changes in `core/include/moveit/task_constructor/stage.{h,p.h}` and `core/src/stage.cpp`. **These edits must be rebuilt (`colcon build --packages-select moveit_task_constructor_core ...`) and will need to be carried forward as a patch or fork.**
 - `create_toggle_stage()` now instantiates a `ModifyPlanningScene` stage and registers a Python execute callback, so the digital output fires only during execution. The helper returns a boolean result to signal success/failure back into the pipeline.
 - HAL helper `za6_moveit_config/scripts/io/gripper_io.py` publishes to `/hal_io/dout01` and mirrors state on `/hal_io/digital_out_1`, honoring BEST_EFFORT QoS; the same helper is reused by the execute callback.
