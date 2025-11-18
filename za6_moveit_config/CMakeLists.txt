@@ -77,6 +77,7 @@ install(
 install(
   PROGRAMS
     scripts/mtc/mtc_pipeline_experiment.py
+    scripts/diagnose_trajectory.py
   DESTINATION
     lib/${PROJECT_NAME}
   RENAME
