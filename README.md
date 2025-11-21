@@ -15,6 +15,25 @@ the complete stack into a Docker image.  The Docker image can be used
 on the Tormach robot controller to run real hardware, and can also be
 used on any host with Docker engine to run in sim mode.
 
+## ⚠️ CRITICAL: ROS 2 Commands Must Run in Docker Container
+
+**All ROS 2 commands (`ros2`, `colcon`, etc.) MUST be executed inside the Docker container `ros2-devel`.**
+
+The ROS 2 environment is not available in the host shell. Use one of these methods:
+
+```bash
+# Method 1: Enter container interactively
+docker exec -it ros2-devel bash
+
+# Method 2: Run single command
+docker exec -w /home/pathpilot/Projects/za6_workspace ros2-devel ros2 <command>
+
+# Method 3: Use helper script (from workspace root)
+./ros2-in-docker.sh <ros2-command> [args...]
+```
+
+See [`docs/DEVELOPMENT_NOTES.md`](docs/DEVELOPMENT_NOTES.md) for detailed development workflow.
+
 ## Standard Setup (za6-devel / main branch)
 
 Create a ROS 2 workspace and clone this repository:

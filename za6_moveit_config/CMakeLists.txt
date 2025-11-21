@@ -63,6 +63,7 @@ install(
     scripts/load_frames_from_warehouse.py
     scripts/get_current_pose.py
     scripts/run_servo_with_manipulator.sh
+    scripts/add_table_to_scene.py
   DESTINATION
     lib/${PROJECT_NAME}
 )
@@ -77,14 +78,20 @@ install(
 install(
   PROGRAMS
     scripts/mtc/mtc_pipeline_experiment.py
-    scripts/diagnose_trajectory.py
   DESTINATION
     lib/${PROJECT_NAME}
   RENAME
     mtc_pipeline_experiment.py
 )
 
-install(DIRECTORY config launch DESTINATION share/${PROJECT_NAME})
+install(
+  PROGRAMS
+    scripts/diagnose_trajectory.py
+  DESTINATION
+    lib/${PROJECT_NAME}
+)
+
+install(DIRECTORY config launch meshes DESTINATION share/${PROJECT_NAME})
 install(FILES .setup_assistant DESTINATION share/${PROJECT_NAME})
 install(FILES ${XACRO_OUTPUT_FILE} DESTINATION share/${PROJECT_NAME}/config)
 

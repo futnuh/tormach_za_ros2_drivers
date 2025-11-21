@@ -5,7 +5,7 @@
 import os
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, SetEnvironmentVariable
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, SetEnvironmentVariable, TimerAction
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, Command
 from launch.launch_description_sources import (
@@ -223,6 +223,23 @@ def generate_launch_description():
         condition=IfCondition(db),
     )
 
+    # 8) Add table to planning scene (after system is up)
+    # Delay by 5 seconds to ensure MoveIt and RViz are ready
+    add_table_node = TimerAction(
+        period=5.0,
+        actions=[
+            Node(
+                package="za6_moveit_config",
+                executable="add_table_to_scene.py",
+                name="add_table_to_scene",
+                parameters=[
+                    {"use_sim_time": use_sim_time},
+                ],
+                output="screen",
+            )
+        ],
+    )
+
     return LaunchDescription(declared_arguments + [
         set_dds_env,
         bringup_launch,
@@ -231,6 +248,7 @@ def generate_launch_description():
         gamepad_bridge,
         moveit_rviz,
         warehouse_db_launch,
+        add_table_node,
     ])
 
 
